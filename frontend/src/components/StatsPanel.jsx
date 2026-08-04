@@ -310,8 +310,236 @@ function StatsPanel({ gnssData }) {
   }
 
   return (
-    <div className="stats-panel mobile">
-      Mobile Version
+    <div
+      className="stats-panel mobile"
+      style={{
+        opacity: gnssData.connected ? 1 : 0.75,
+        transition: "0.3s ease",
+      }}
+    >
+      {/* Header */}
+
+      <div
+        className="mobile-stats-header"
+        onClick={() => setMobileExpanded(!mobileExpanded)}
+        style={{
+          cursor: "pointer",
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              margin: 0,
+            }}
+          >
+            GNSS Information
+          </h3>
+
+          <span
+            style={{
+              fontSize: "13px",
+              color:
+                gnssData.connected
+                  ? "#059669"
+                  : "#dc2626",
+              fontWeight: "600",
+            }}
+          >
+            {gnssData.connected
+              ? "🟢 Receiver Connected"
+              : "🔴 Receiver Disconnected"}
+          </span>
+        </div>
+
+        <div
+          style={{
+            fontSize: "18px",
+            color: "#2563eb",
+            fontWeight: "600",
+          }}
+        >
+          {mobileExpanded ? "▲" : "▼"}
+        </div>
+      </div>
+
+      {/* Expanded Content */}
+
+      {mobileExpanded && (
+        <>
+
+          {/* Record Button */}
+
+          <div
+            onClick={handleRecording}
+            style={{
+              marginTop: "16px",
+              padding: "11px",
+              borderRadius: "10px",
+              cursor: "pointer",
+              textAlign: "center",
+              fontWeight: "600",
+              background: recordStatus.recording
+                ? "#ef4444"
+                : "#2563eb",
+              color: "#fff",
+              userSelect: "none",
+            }}
+          >
+            {recordStatus.recording ? "⏹ Stop" : "⏺ Record"}
+          </div>
+
+          {/* Recording Status */}
+
+          {recordStatus.recording && (
+            <div
+              style={{
+                textAlign: "center",
+                marginTop: "10px",
+                marginBottom: "10px",
+                color: "#555",
+                fontSize: "13px",
+                lineHeight: "22px",
+              }}
+            >
+              <div>🔴 Recording...</div>
+
+              <div
+                style={{
+                  fontWeight: "600",
+                }}
+              >
+                {hours}:{minutes}:{seconds}
+              </div>
+
+              <div>
+                {recordStatus.samples} Samples
+              </div>
+            </div>
+          )}
+
+          {/* Important Information */}
+
+          <div className="info-row">
+            <div className="label">
+              <FaLocationDot />
+              Latitude
+            </div>
+
+            <span className="value">
+              {gnssData.latitude?.toFixed(6) ?? "--"}
+            </span>
+          </div>
+
+          <div className="info-row">
+            <div className="label">
+              <FaLocationDot />
+              Longitude
+            </div>
+
+            <span className="value">
+              {gnssData.longitude?.toFixed(6) ?? "--"}
+            </span>
+          </div>
+
+          <div className="info-row">
+            <div className="label">
+              <FaBullseye />
+              Accuracy
+            </div>
+
+            <span className="value">
+              {gnssData.accuracy?.toFixed(2) ?? "--"} m
+            </span>
+          </div>
+
+          {/* More Button */}
+
+          <div
+            onClick={() =>
+              setMobileShowMore(!mobileShowMore)
+            }
+            style={{
+              marginTop: "14px",
+              marginBottom: "6px",
+              textAlign: "center",
+              color: "#2563eb",
+              fontWeight: "600",
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            {mobileShowMore
+              ? "Show Less ▲"
+              : "Show More ▼"}
+          </div>
+
+          {/* Remaining Information */}
+
+          {mobileShowMore && (
+            <>
+
+              <div className="info-row">
+                <div className="label">
+                  <FaSatelliteDish />
+                  Satellites
+                </div>
+
+                <span className="value">
+                  {gnssData.satellites ?? "--"}
+                </span>
+              </div>
+
+              <div className="info-row">
+                <div className="label">
+                  <MdGpsFixed />
+                  HDOP
+                </div>
+
+                <span className="value">
+                  {gnssData.hdop ?? "--"}
+                </span>
+              </div>
+
+              <div className="info-row">
+                <div className="label">
+                  <MdGpsFixed />
+                  Fix Type
+                </div>
+
+                <span className="status">
+                  {gnssData.fixType ?? "--"}
+                </span>
+              </div>
+
+              <div className="info-row">
+                <div className="label">
+                  <FaClock />
+                  Time
+                </div>
+
+                <span className="value">
+                  {currentTime}
+                </span>
+              </div>
+
+              {!gnssData.connected && (
+                <div
+                  style={{
+                    marginTop: "14px",
+                    textAlign: "center",
+                    color: "#666",
+                    fontSize: "13px",
+                  }}
+                >
+                  Last update {secondsAgo}s ago
+                </div>
+              )}
+
+            </>
+          )}
+
+        </>
+      )}
     </div>
   );
 }
