@@ -4,7 +4,6 @@ import http from "http";
 import initializeSocket from "./config/socket.js";
 import { getGnssData, updateReceiverPacket, getReceiverState } from "./services/gnssService.js";
 import { broadcastGnss } from "./services/broadcaster.js";
-import { DRIVER } from "./config/driverConfig.js";
 import { startRecording, stopRecording, getRecorderStatus } from "./services/recorderService.js";
 import path from "path";
 import dotenv from "dotenv";
@@ -28,6 +27,8 @@ app.use(express.json());
 const server = http.createServer(app);
 
 initializeSocket(server);
+
+const DRIVER = process.env.DRIVER;
 
 if (DRIVER === "simulator") {
   setInterval(() => {

@@ -1,10 +1,10 @@
 import SimulatorDriver from "../drivers/simulatorDriver.js";
 import ESP32Driver from "../drivers/esp32Driver.js";
 import receiverState from "./receiverState.js";
-import { DRIVER } from "../config/driverConfig.js";
 import { appendRecord } from "./recorderService.js";
 import ReachRxDriver from "../drivers/reachRxDriver.js";
 
+const DRIVER = process.env.DRIVER;
 let driver;
 
 if (DRIVER === "simulator") {
