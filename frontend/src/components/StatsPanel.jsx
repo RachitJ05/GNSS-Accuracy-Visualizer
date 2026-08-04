@@ -9,6 +9,9 @@ import { MdGpsFixed } from "react-icons/md";
 
 function StatsPanel({ gnssData }) {
   const [secondsAgo, setSecondsAgo] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [mobileShowMore, setMobileShowMore] = useState(false);
   const [recordStatus, setRecordStatus] = useState({
     recording: false,
     elapsed: 0,
@@ -47,6 +50,15 @@ function StatsPanel({ gnssData }) {
       }
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    function handleResize(){
+      setIsMobile(window.innerWidth <= 768);
+    }
+    window.addEventListener("resize", handleResize);
+    return () =>
+        window.removeEventListener("resize", handleResize);
   }, []);
 
   async function handleRecording() {
