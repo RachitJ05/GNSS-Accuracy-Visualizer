@@ -2,7 +2,6 @@ import { MapContainer, TileLayer, Marker, Circle, useMap } from "react-leaflet";
 import { useMemo, useState, useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "../styles/map.css";
 import { ZoomControl } from "react-leaflet";
 import LocationControl from "./LocationControl";
 import MapStyleControl from "./MapStyleControl";
