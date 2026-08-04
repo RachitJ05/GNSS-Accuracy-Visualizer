@@ -3,8 +3,17 @@ import ESP32Driver from "../drivers/esp32Driver.js";
 import receiverState from "./receiverState.js";
 import { DRIVER } from "../config/driverConfig.js";
 import { appendRecord } from "./recorderService.js";
+import ReachRxDriver from "../drivers/reachRxDriver.js";
 
-const driver = DRIVER === "simulator" ? new SimulatorDriver() : new ESP32Driver();
+let driver;
+
+if (DRIVER === "simulator") {
+  driver = new SimulatorDriver();
+} else if (DRIVER === "esp32") {
+  driver = new ESP32Driver();
+} else if (DRIVER === "reachrx") {
+  driver = new ReachRxDriver();
+}
 
 if (typeof driver.connect === "function") {
   driver.connect();
@@ -12,17 +21,24 @@ if (typeof driver.connect === "function") {
 
 export function getGnssData() {
 
-  if (DRIVER === "esp32") {
+  if (DRIVER !== "simulator") {
     return receiverState;
   }
 
   const data = driver.getData();
 
+  if (!data) {
+    return receiverState;
+  }
+
   Object.assign(receiverState, data);
 
   receiverState.connected = true;
-
+  receiverState.status = "connected";
+  receiverState.lastSeen = Date.now();
   receiverState.timestamp = new Date().toISOString();
+
+  appendRecord(receiverState);
 
   return receiverState;
 }

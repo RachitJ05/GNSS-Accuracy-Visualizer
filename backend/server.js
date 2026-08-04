@@ -7,6 +7,8 @@ import { broadcastGnss } from "./services/broadcaster.js";
 import { DRIVER } from "./config/driverConfig.js";
 import { startRecording, stopRecording, getRecorderStatus } from "./services/recorderService.js";
 import path from "path";
+import dotenv from "dotenv";
+dotenv.config();
 
 const app = express();
 
@@ -30,7 +32,7 @@ initializeSocket(server);
 if (DRIVER === "simulator") {
   setInterval(() => {
     broadcastGnss(getGnssData());
-  },1000);
+  }, 1000);
 }
 
 setInterval(() => {             // ESP32 disconnect checker

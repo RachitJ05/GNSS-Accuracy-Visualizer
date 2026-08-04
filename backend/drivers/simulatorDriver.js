@@ -50,8 +50,8 @@ let receiverState = {
 let currentMode = "standard";
 
 const SIMULATE_MOVEMENT = true;
-let latitude = 28.595243;
-let longitude = 77.061708;
+let latitude = 28.490642254295235;
+let longitude = 77.07941202501088;
 
 class SimulatorDriver {
   connect() {
