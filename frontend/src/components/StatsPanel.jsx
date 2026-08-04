@@ -99,211 +99,219 @@ function StatsPanel({ gnssData }) {
     recordStatus.elapsed % 60
   ).padStart(2, "0");
 
-  return (
-    <div
-      className="stats-panel"
-      style={{
-        opacity: gnssData.connected ? 1 : 0.7,
-        transition: "0.3s ease",
-      }}
-    >
-      <div className="stats-header">
-        <div className="stats-title">
-          <div className="stats-icon">
-            <FaSatelliteDish />
-          </div>
-
-          <div>
-            <h3>GNSS Information</h3>
-            <span>Live Receiver Data</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Receiver Status */}
-
-      <div
+  if (!isMobile) {
+    return (
+        <div
+        className="stats-panel"
         style={{
-          marginTop: "14px",
-          marginBottom: "18px",
-          padding: "12px",
-          borderRadius: "10px",
-          fontWeight: 600,
-          textAlign: "center",
-          background:
-            gnssData.status === "connected"
-              ? "#d1fae5"
-              : "#fee2e2",
-          color:
-            gnssData.status === "connected"
-              ? "#065f46"
-              : "#991b1b",
+          opacity: gnssData.connected ? 1 : 0.7,
+          transition: "0.3s ease",
         }}
       >
-        {gnssData.status === "connected"
-          ? "🟢 Receiver Connected"
-          : "🔴 Receiver Disconnected"}
-      </div>
+        <div className="stats-header">
+          <div className="stats-title">
+            <div className="stats-icon">
+              <FaSatelliteDish />
+            </div>
 
-      {!gnssData.connected && (
+            <div>
+              <h3>GNSS Information</h3>
+              <span>Live Receiver Data</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Receiver Status */}
+
         <div
           style={{
+            marginTop: "14px",
             marginBottom: "18px",
+            padding: "12px",
+            borderRadius: "10px",
+            fontWeight: 600,
             textAlign: "center",
-            color: "#666",
-            fontSize: "13px",
-            lineHeight: "20px",
+            background:
+              gnssData.status === "connected"
+                ? "#d1fae5"
+                : "#fee2e2",
+            color:
+              gnssData.status === "connected"
+                ? "#065f46"
+                : "#991b1b",
           }}
         >
-          <div>
-            Last update
-          </div>
-
-          <div
-            style={{
-              fontWeight: "600",
-              marginTop: "4px",
-            }}
-          >
-            {secondsAgo} second{secondsAgo !== 1 ? "s" : ""} ago
-          </div>
+          {gnssData.status === "connected"
+            ? "🟢 Receiver Connected"
+            : "🔴 Receiver Disconnected"}
         </div>
-      )}
 
-      <div
-        onClick={handleRecording}
-        style={{
-          marginTop: "14px",
-          padding: "12px",
-          borderRadius: "12px",
-          cursor: "pointer",
-          textAlign: "center",
-          fontWeight: "600",
-          fontSize: "16px",
-          transition: "0.3s",
-          userSelect: "none",
-
-          background: recordStatus.recording
-            ? "#ef4444"
-            : "#2563eb",
-
-          color: "#fff",
-        }}
-      >
-        {recordStatus.recording ? "⏹ Stop" : "⏺ Record"}
-      </div>
-
-      {
-        recordStatus.recording && (
+        {!gnssData.connected && (
           <div
             style={{
+              marginBottom: "18px",
               textAlign: "center",
-              marginTop: "14px",
-              marginBottom: "14px",
-              color: "#555",
-              fontSize: "14px",
-              lineHeight: "24px",
+              color: "#666",
+              fontSize: "13px",
+              lineHeight: "20px",
             }}
           >
             <div>
-
-              🔴 Recording...
-
+              Last update
             </div>
 
             <div
               style={{
                 fontWeight: "600",
+                marginTop: "4px",
               }}
             >
-              {hours}:{minutes}:{seconds}
-            </div>
-
-            <div>
-
-              {recordStatus.samples} Samples
-
+              {secondsAgo} second{secondsAgo !== 1 ? "s" : ""} ago
             </div>
           </div>
-        )
-      }
+        )}
 
-      <div className="info-row">
-        <div className="label">
-          <FaLocationDot />
-          Latitude
+        <div
+          onClick={handleRecording}
+          style={{
+            marginTop: "14px",
+            padding: "12px",
+            borderRadius: "12px",
+            cursor: "pointer",
+            textAlign: "center",
+            fontWeight: "600",
+            fontSize: "16px",
+            transition: "0.3s",
+            userSelect: "none",
+
+            background: recordStatus.recording
+              ? "#ef4444"
+              : "#2563eb",
+
+            color: "#fff",
+          }}
+        >
+          {recordStatus.recording ? "⏹ Stop" : "⏺ Record"}
         </div>
 
-        <span className="value">
-          {gnssData.latitude?.toFixed(6) ?? "--"}
-        </span>
-      </div>
+        {
+          recordStatus.recording && (
+            <div
+              style={{
+                textAlign: "center",
+                marginTop: "14px",
+                marginBottom: "14px",
+                color: "#555",
+                fontSize: "14px",
+                lineHeight: "24px",
+              }}
+            >
+              <div>
 
-      <div className="info-row">
-        <div className="label">
-          <FaLocationDot />
-          Longitude
+                🔴 Recording...
+
+              </div>
+
+              <div
+                style={{
+                  fontWeight: "600",
+                }}
+              >
+                {hours}:{minutes}:{seconds}
+              </div>
+
+              <div>
+
+                {recordStatus.samples} Samples
+
+              </div>
+            </div>
+          )
+        }
+
+        <div className="info-row">
+          <div className="label">
+            <FaLocationDot />
+            Latitude
+          </div>
+
+          <span className="value">
+            {gnssData.latitude?.toFixed(6) ?? "--"}
+          </span>
         </div>
 
-        <span className="value">
-          {gnssData.longitude?.toFixed(6) ?? "--"}
-        </span>
-      </div>
+        <div className="info-row">
+          <div className="label">
+            <FaLocationDot />
+            Longitude
+          </div>
 
-      <div className="info-row">
-        <div className="label">
-          <FaBullseye />
-          Accuracy
+          <span className="value">
+            {gnssData.longitude?.toFixed(6) ?? "--"}
+          </span>
         </div>
 
-        <span className="value">
-          {gnssData.accuracy?.toFixed(2) ?? "--"} m
-        </span>
-      </div>
+        <div className="info-row">
+          <div className="label">
+            <FaBullseye />
+            Accuracy
+          </div>
 
-      <div className="info-row">
-        <div className="label">
-          <FaSatelliteDish />
-          Satellites
+          <span className="value">
+            {gnssData.accuracy?.toFixed(2) ?? "--"} m
+          </span>
         </div>
 
-        <span className="value">
-          {gnssData.satellites ?? "--"}
-        </span>
-      </div>
+        <div className="info-row">
+          <div className="label">
+            <FaSatelliteDish />
+            Satellites
+          </div>
 
-      <div className="info-row">
-        <div className="label">
-          <MdGpsFixed />
-          HDOP
+          <span className="value">
+            {gnssData.satellites ?? "--"}
+          </span>
         </div>
 
-        <span className="value">
-          {gnssData.hdop ?? "--"}
-        </span>
-      </div>
+        <div className="info-row">
+          <div className="label">
+            <MdGpsFixed />
+            HDOP
+          </div>
 
-      <div className="info-row">
-        <div className="label">
-          <MdGpsFixed />
-          Fix Type
+          <span className="value">
+            {gnssData.hdop ?? "--"}
+          </span>
         </div>
 
-        <span className="status">
-          {gnssData.fixType ?? "--"}
-        </span>
-      </div>
+        <div className="info-row">
+          <div className="label">
+            <MdGpsFixed />
+            Fix Type
+          </div>
 
-      <div className="info-row">
-        <div className="label">
-          <FaClock />
-          Time
+          <span className="status">
+            {gnssData.fixType ?? "--"}
+          </span>
         </div>
 
-        <span className="value">
-          {currentTime}
-        </span>
+        <div className="info-row">
+          <div className="label">
+            <FaClock />
+            Time
+          </div>
+
+          <span className="value">
+            {currentTime}
+          </span>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="stats-panel mobile">
+      Mobile Version
     </div>
   );
 }

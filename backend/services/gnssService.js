@@ -3,6 +3,8 @@ import ESP32Driver from "../drivers/esp32Driver.js";
 import receiverState from "./receiverState.js";
 import { appendRecord } from "./recorderService.js";
 import ReachRxDriver from "../drivers/reachRxDriver.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 const DRIVER = process.env.DRIVER;
 let driver;
