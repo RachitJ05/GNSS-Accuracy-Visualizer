@@ -421,3 +421,153 @@ border-radius: 0;
   border-radius: 50%;
   box-shadow: 0 0 10px rgba(26, 115, 232, 0.6);
 }
+
+/* =====================================================
+   Mobile Layout (Phones)
+===================================================== */
+
+@media (max-width: 768px) {
+  .airtel-logo{
+
+    width:42px;
+
+    height:42px;
+
+    top:14px;
+
+    left:14px;
+
+    padding:4px;
+
+  }
+
+  .cp-wrapper{
+
+    width:260px;
+
+    top:70px;
+
+    left:12px;
+
+  }
+
+    .cp-header{
+
+    height:58px;
+
+    padding:0 18px;
+
+  }
+
+    .cp-title{
+
+    font-size:16px;
+
+    gap:12px;
+
+  }
+
+    .cp-header-icon{
+
+    font-size:22px;
+
+  }
+
+    .cp-item{
+
+    height:54px;
+
+    font-size:16px;
+
+    padding:0 18px;
+
+  }
+
+    .cp-left{
+
+    gap:12px;
+
+  }
+
+  .stats-panel{
+
+    top:12px;
+
+    right:12px;
+
+    width:250px;
+
+    padding:18px;
+
+    border-radius:16px;
+
+  }
+
+  .stats-title h3{
+
+    font-size:18px;
+
+  }
+
+  .stats-title span{
+
+    font-size:12px;
+
+  }
+
+  .label{
+
+    font-size:14px;
+
+  }
+
+  .value{
+
+    font-size:14px;
+
+  }
+
+  .status{
+
+    font-size:12px;
+
+    padding:3px 8px;
+
+  }
+
+  .info-row{
+
+    padding:10px 0;
+
+  }
+
+  .stats-panel button{
+
+    height:42px;
+
+    font-size:15px;
+
+  }
+
+  .leaflet-control-zoom a{
+
+    width:28px;
+
+    height:28px;
+
+    line-height:28px;
+
+    font-size:18px;
+
+  }
+
+    .leaflet-location-btn{
+
+    width:28px;
+
+    height:28px;
+
+    font-size:18px;
+
+  }
+}
