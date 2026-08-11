@@ -17,7 +17,7 @@ if (DRIVER === "simulator") {
   driver = new ReachRxDriver();
 }
 
-if (typeof driver.connect === "function") {
+if (driver && typeof driver.connect === "function") {
   driver.connect();
 }
 
@@ -47,21 +47,38 @@ export function getGnssData() {
 
 export function updateReceiverPacket(packet) {
 
-  if (DRIVER === "esp32") {
-    driver.updatePacket(packet);
+  Object.assign(
+    receiverState,
+    packet
+  );
+
+  if (packet.connected === false) {
+
+    receiverState.connected = false;
+
+    receiverState.status =
+      "disconnected";
+
+  }
+  else {
+
+    receiverState.connected = true;
+
+    receiverState.status =
+      "connected";
+
+    receiverState.lastSeen =
+      Date.now();
+
   }
 
-  Object.assign(receiverState, packet);
+  receiverState.timestamp =
+    packet.timestamp ||
+    new Date().toISOString();
 
-  receiverState.connected = true;
-
-  receiverState.status = "connected";
-
-  receiverState.lastSeen = Date.now();
-
-  receiverState.timestamp = new Date().toISOString();
-
-  appendRecord(receiverState);
+  appendRecord(
+    receiverState
+  );
 
   return receiverState;
 }
