@@ -1,398 +1,845 @@
 import { SerialPort } from "serialport";
 import { ReadlineParser } from "@serialport/parser-readline";
-import * as NMEA from "nmea-simple";
+import net from "net";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const PORT = process.env.REACH_PORT || "COM7";
+const SERIAL_PORT = process.env.REACH_PORT || "COM3";
 const BAUD_RATE = Number(process.env.REACH_BAUD || 115200);
-const BACKEND_URL =
-    process.env.BACKEND_URL ||
-    "http://localhost:5000";
 
-const DISCONNECT_TIMEOUT =
-    Number(process.env.DISCONNECT_TIMEOUT || 5000);
+const BACKEND_URL = process.env.BACKEND_URL;
 
-const GNSS_ENDPOINT =
-    `${BACKEND_URL}/api/gnss`;
+const NTRIP_HOST = process.env.NTRIP_HOST;
+const NTRIP_PORT = Number(process.env.NTRIP_PORT || 2101);
+const NTRIP_MOUNTPOINT = process.env.NTRIP_MOUNTPOINT || "MSM5";
 
-let port = null;
+const NTRIP_USERNAME = process.env.NTRIP_USERNAME;
+const NTRIP_PASSWORD = process.env.NTRIP_PASSWORD;
+
+let serialPort = null;
 let parser = null;
+let ntripSocket = null;
 
+let latestGGA = null;
 let latestGST = null;
 
-let disconnectTimer = null;
+let serialConnected = false;
+let ntripConnected = false;
+let headersReceived = false;
 
-let connected = false;
+let lastGNSSDataTime = 0;
+let rtcmBytes = 0;
 
-let sending = false;
-
-
-/* =====================================================
-   SEND DATA TO BACKEND
-===================================================== */
-
-async function sendToBackend(packet) {
-
-    if (sending) {
-        return;
-    }
-
-    sending = true;
-
-    try {
-
-        const response = await fetch(
-            GNSS_ENDPOINT,
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type":
-                        "application/json",
-                },
-
-                body: JSON.stringify(packet),
-            }
-        );
-
-        if (!response.ok) {
-
-            console.error(
-                `Backend HTTP ${response.status}`
-            );
-
-        }
-
-    }
-    catch (error) {
-
-        console.error(
-            "Backend connection failed:",
-            error.message
-        );
-
-    }
-    finally {
-
-        sending = false;
-
-    }
-
-}
+const DISCONNECT_TIMEOUT = 5000;
 
 
-/* =====================================================
-   FIX TYPE
-===================================================== */
+// ======================================================
+// SERIAL CONNECTION
+// ======================================================
 
-function getFixType(rawLine) {
+function connectSerial() {
 
-    const fields =
-        rawLine.split(",");
-
-    const quality =
-        Number(fields[6]);
-
-    switch (quality) {
-
-        case 0:
-            return "Invalid";
-
-        case 1:
-            return "Single";
-
-        case 2:
-            return "DGPS";
-
-        case 4:
-            return "RTK Fixed";
-
-        case 5:
-            return "RTK Float";
-
-        case 6:
-            return "Dead Reckoning";
-
-        default:
-            return "Unknown";
-
-    }
-
-}
-
-
-/* =====================================================
-   DISCONNECT WATCHDOG
-===================================================== */
-
-function resetDisconnectTimer() {
-
-    clearTimeout(
-        disconnectTimer
+    console.log(
+        `Connecting to Reach RX on ${SERIAL_PORT}...`
     );
 
-    disconnectTimer =
-        setTimeout(
-            async () => {
+    serialPort = new SerialPort({
+        path: SERIAL_PORT,
+        baudRate: BAUD_RATE,
+    });
 
-                if (!connected) {
-                    return;
-                }
+    parser = serialPort.pipe(
+        new ReadlineParser({
+            delimiter: "\r\n",
+        })
+    );
 
-                connected = false;
 
-                console.log(
-                    "Reach RX disconnected"
-                );
+    // --------------------------------------------------
+    // SERIAL OPEN
+    // --------------------------------------------------
 
-                await sendToBackend({
+    serialPort.on("open", () => {
 
-                    connected: false,
+        serialConnected = true;
 
-                    status: "disconnected",
-
-                    timestamp:
-                        new Date().toISOString(),
-
-                });
-
-            },
-            DISCONNECT_TIMEOUT
+        console.log(
+            `Reach RX connected on ${SERIAL_PORT}`
         );
 
-}
+        console.log(
+            "Waiting for Reach RX GGA before connecting to NTRIP..."
+        );
+    });
 
 
-/* =====================================================
-   PROCESS GGA
-===================================================== */
+    // --------------------------------------------------
+    // SERIAL ERROR
+    // --------------------------------------------------
 
-async function processGGA(
-    rawLine,
-    packet
-) {
+    serialPort.on("error", (err) => {
 
-    const fixType =
-        getFixType(rawLine);
+        serialConnected = false;
 
-    const accuracy =
-        latestGST
-            ? Number(
+        console.error(
+            "Reach RX serial error:",
+            err.message
+        );
+    });
+
+
+    // --------------------------------------------------
+    // SERIAL CLOSE
+    // --------------------------------------------------
+
+    serialPort.on("close", () => {
+
+        serialConnected = false;
+
+        console.log(
+            "Reach RX disconnected"
+        );
+
+        if (ntripSocket) {
+
+            ntripSocket.destroy();
+
+            ntripSocket = null;
+        }
+
+        ntripConnected = false;
+        headersReceived = false;
+    });
+
+
+    // ==================================================
+    // NMEA DATA FROM REACH RX
+    // ==================================================
+
+    parser.on("data", async (line) => {
+
+        line = line.trim();
+
+        if (!line.startsWith("$")) {
+            return;
+        }
+
+
+        // ----------------------------------------------
+        // GST
+        // ----------------------------------------------
+
+        if (
+            line.startsWith("$GNGST") ||
+            line.startsWith("$GPGST")
+        ) {
+
+            const fields = line.split(",");
+
+            latestGST = {
+
+                latitudeError:
+                    Number(fields[6]),
+
+                longitudeError:
+                    Number(fields[7]),
+
+                altitudeError:
+                    Number(
+                        fields[8]?.split("*")[0]
+                    ),
+            };
+
+            return;
+        }
+
+
+        // ----------------------------------------------
+        // GGA
+        // ----------------------------------------------
+
+        if (
+            !line.startsWith("$GNGGA") &&
+            !line.startsWith("$GPGGA")
+        ) {
+            return;
+        }
+
+
+        latestGGA = line;
+
+
+        // ----------------------------------------------
+        // Connect to NTRIP after first GGA
+        // ----------------------------------------------
+
+        if (!ntripSocket) {
+
+        console.log(
+            "First GGA received - connecting to NTRIP..."
+        );
+
+        connectNTRIP();
+
+    }
+
+
+        // ----------------------------------------------
+        // Parse GGA
+        // ----------------------------------------------
+
+        const fields = line.split(",");
+
+
+        const latitude = parseCoordinate(
+            fields[2],
+            fields[3]
+        );
+
+
+        const longitude = parseCoordinate(
+            fields[4],
+            fields[5]
+        );
+
+
+        const quality = Number(
+            fields[6]
+        );
+
+
+        const satellites = Number(
+            fields[7]
+        );
+
+
+        const hdop = Number(
+            fields[8]
+        );
+
+
+        const altitude = Number(
+            fields[9]
+        );
+
+
+        // ----------------------------------------------
+        // Fix type
+        // ----------------------------------------------
+
+        let fixType = "Unknown";
+
+
+        switch (quality) {
+
+            case 0:
+                fixType = "Invalid";
+                break;
+
+            case 1:
+                fixType = "Single";
+                break;
+
+            case 2:
+                fixType = "DGPS";
+                break;
+
+            case 4:
+                fixType = "RTK Fixed";
+                break;
+
+            case 5:
+                fixType = "RTK Float";
+                break;
+
+            case 6:
+                fixType = "Dead Reckoning";
+                break;
+        }
+
+
+        // ----------------------------------------------
+        // Accuracy
+        // ----------------------------------------------
+
+        let accuracy = null;
+
+
+        if (
+            latestGST &&
+            Number.isFinite(
+                latestGST.latitudeError
+            ) &&
+            Number.isFinite(
+                latestGST.longitudeError
+            )
+        ) {
+
+            accuracy = Number(
                 Math.max(
                     latestGST.latitudeError,
                     latestGST.longitudeError
                 ).toFixed(2)
-            )
-            : null;
+            );
+        }
 
 
-    const receiverPacket = {
+        // ----------------------------------------------
+        // GNSS data
+        // ----------------------------------------------
 
-        latitude:
-            packet.latitude,
+        const gnssData = {
 
-        longitude:
-            packet.longitude,
+            latitude,
 
-        altitude:
-            packet.altitudeMeters,
+            longitude,
 
-        satellites:
-            packet.satellitesInView,
+            altitude,
 
-        hdop:
-            packet.horizontalDilution,
+            satellites,
 
-        accuracy,
+            hdop,
 
-        fixType,
+            accuracy,
 
-        connected: true,
+            fixType,
 
-        status: "connected",
+            connected: true,
 
-        mode: "standard",
+            status: "connected",
 
-        timestamp:
-            new Date().toISOString(),
-
-    };
+            timestamp:
+                new Date().toISOString(),
+        };
 
 
-    connected = true;
+        lastGNSSDataTime = Date.now();
 
 
-    console.log(
-        "GNSS:",
-        receiverPacket
-    );
+        // ----------------------------------------------
+        // Send to backend
+        // ----------------------------------------------
 
-
-    await sendToBackend(
-        receiverPacket
-    );
-
-
-    resetDisconnectTimer();
-
+        await sendToBackend(
+            gnssData
+        );
+    });
 }
 
 
-/* =====================================================
-   CONNECT TO REACH RX
-===================================================== */
+// ======================================================
+// NTRIP CONNECTION
+// ======================================================
 
-function connect() {
+function connectNTRIP() {
+
+    if (!serialConnected) {
+
+        console.log(
+            "Cannot connect to NTRIP: Reach RX is not connected."
+        );
+
+        return;
+    }
+
+
+    if (ntripSocket) {
+        return;
+    }
+
 
     console.log(
-        `Connecting to Reach RX on ${PORT}...`
+        "Connecting to NTRIP caster..."
     );
 
 
-    port = new SerialPort({
+    ntripSocket = new net.Socket();
 
-        path: PORT,
-
-        baudRate: BAUD_RATE,
-
-    });
+    headersReceived = false;
 
 
-    port.on(
-        "open",
+    ntripSocket.connect(
+        NTRIP_PORT,
+        NTRIP_HOST,
         () => {
 
             console.log(
-                `Reach RX connected on ${PORT}`
+                "Connected to NTRIP caster"
             );
 
-        }
-    );
+
+            const credentials =
+                Buffer
+                    .from(
+                        `${NTRIP_USERNAME}:${NTRIP_PASSWORD}`
+                    )
+                    .toString("base64");
 
 
-    port.on(
-        "error",
-        (error) => {
+            const request =
+                `GET /${NTRIP_MOUNTPOINT} HTTP/1.0\r\n` +
+                `Host: ${NTRIP_HOST}:${NTRIP_PORT}\r\n` +
+                `User-Agent: NTRIP ReachRXBridge/1.0\r\n` +
+                `Ntrip-Version: Ntrip/1.0\r\n` +
+                `Accept: */*\r\n` +
+                `Authorization: Basic ${credentials}\r\n` +
+                `Connection: keep-alive\r\n\r\n`;
 
-            console.error(
-                "Serial port error:",
-                error.message
-            );
-
-        }
-    );
-
-
-    port.on(
-        "close",
-        async () => {
 
             console.log(
-                "Reach RX serial connection closed"
+                "Sending NTRIP request:"
             );
 
-            if (connected) {
 
-                connected = false;
-
-                await sendToBackend({
-
-                    connected: false,
-
-                    status: "disconnected",
-
-                    timestamp:
-                        new Date().toISOString(),
-
-                });
-
-            }
-
-        }
-    );
+            console.log(
+                request.replace(
+                    `Authorization: Basic ${credentials}`,
+                    "Authorization: Basic [HIDDEN]"
+                )
+            );
 
 
-    parser =
-        port.pipe(
-            new ReadlineParser({
-                delimiter: "\r\n",
-            })
-        );
+            ntripSocket.write(
+                request
+            );
 
 
-    parser.on(
-        "data",
-        async (line) => {
+            // ------------------------------------------
+            // Send initial GGA shortly after request
+            // ------------------------------------------
 
-            try {
+            setTimeout(() => {
 
-                const rawLine =
-                    line.trim();
+                if (
+                    ntripSocket &&
+                    !ntripSocket.destroyed &&
+                    latestGGA
+                ) {
 
+                    console.log(
+                        "Sending initial GGA to NTRIP caster:"
+                    );
 
-                if (!rawLine) {
-                    return;
-                }
-
-
-                const packet =
-                    NMEA.parseNmeaSentence(
-                        rawLine
+                    console.log(
+                        latestGGA
                     );
 
 
-                /* GST */
-
-                if (
-                    packet.sentenceId ===
-                    "GST"
-                ) {
-
-                    latestGST =
-                        packet;
-
-                    return;
-
+                    ntripSocket.write(
+                        latestGGA + "\r\n"
+                    );
                 }
 
-
-                /* Only GGA */
-
-                if (
-                    packet.sentenceId !==
-                    "GGA"
-                ) {
-
-                    return;
-
-                }
-
-
-                await processGGA(
-                    rawLine,
-                    packet
-                );
-
-            }
-            catch (error) {
-
-                console.error(
-                    "NMEA parsing error:",
-                    error.message
-                );
-
-            }
-
+            }, 500);
         }
     );
 
+
+    // ==================================================
+    // NTRIP DATA
+    // ==================================================
+
+    ntripSocket.on("data", (chunk) => {
+
+        // ----------------------------------------------
+        // Wait for NTRIP response
+        // ----------------------------------------------
+
+        if (!headersReceived) {
+
+            // Keep collecting response data
+            // until we know whether this is a
+            // correction stream or an error.
+
+            const text =
+                chunk.toString("ascii");
+
+
+            console.log(
+                "NTRIP raw response:",
+                text
+            );
+
+
+            // ------------------------------------------
+            // Source table
+            // ------------------------------------------
+
+            if (
+                text.includes("SOURCETABLE")
+            ) {
+
+                console.error(
+                    "ERROR: Caster returned SOURCETABLE instead of the correction stream."
+                );
+
+
+                ntripSocket.destroy();
+
+                return;
+            }
+
+
+            // ------------------------------------------
+            // Authentication failure
+            // ------------------------------------------
+
+            if (
+                text.includes("401") ||
+                text.includes("403")
+            ) {
+
+                console.error(
+                    "ERROR: NTRIP authentication rejected."
+                );
+
+
+                ntripSocket.destroy();
+
+                return;
+            }
+
+
+            // ------------------------------------------
+            // Successful NTRIP connection
+            // ------------------------------------------
+
+            if (
+                text.includes("ICY 200") ||
+                text.includes("HTTP/1.1 200") ||
+                text.includes("HTTP/1.0 200")
+            ) {
+
+                console.log(
+                    "NTRIP correction stream accepted."
+                );
+
+
+                headersReceived = true;
+
+                ntripConnected = true;
+
+
+                // --------------------------------------
+                // Find end of HTTP/NTRIP headers
+                // --------------------------------------
+
+                const headerEnd =
+                    chunk.indexOf(
+                        Buffer.from("\r\n\r\n")
+                    );
+
+
+                if (headerEnd !== -1) {
+
+                    const rtcmData =
+                        chunk.subarray(
+                            headerEnd + 4
+                        );
+
+
+                    if (
+                        rtcmData.length > 0
+                    ) {
+
+                        writeRTCM(
+                            rtcmData
+                        );
+                    }
+                }
+
+
+                return;
+            }
+
+
+            return;
+        }
+
+
+        // ----------------------------------------------
+        // RTCM correction data
+        // ----------------------------------------------
+
+        writeRTCM(
+            chunk
+        );
+    });
+
+
+    // ==================================================
+    // NTRIP ERROR
+    // ==================================================
+
+    ntripSocket.on("error", (err) => {
+
+        ntripConnected = false;
+
+        headersReceived = false;
+
+        console.error(
+            "NTRIP error:",
+            err.message
+        );
+    });
+
+
+    // ==================================================
+    // NTRIP CLOSE
+    // ==================================================
+
+    ntripSocket.on("close", () => {
+
+        ntripConnected = false;
+
+        headersReceived = false;
+
+        console.log(
+            "NTRIP connection closed"
+        );
+
+
+        ntripSocket = null;
+    });
 }
 
 
-/* =====================================================
-   START
-===================================================== */
+// ======================================================
+// WRITE RTCM TO REACH RX
+// ======================================================
 
-connect();
+function writeRTCM(data) {
+
+    if (
+        !serialPort ||
+        !serialPort.isOpen
+    ) {
+
+        console.error(
+            "Cannot send RTCM: Reach RX serial port is not open."
+        );
+
+        return;
+    }
+
+
+    serialPort.write(
+        data
+    );
+
+
+    rtcmBytes += data.length;
+
+
+    console.log(
+        `RTCM received: ${rtcmBytes} bytes`
+    );
+}
+
+
+// ======================================================
+// SEND GGA TO NTRIP CASTER
+// ======================================================
+
+function sendGGA() {
+
+    if (
+        !ntripSocket ||
+        ntripSocket.destroyed ||
+        !ntripConnected ||
+        !latestGGA
+    ) {
+
+        return;
+    }
+
+
+    ntripSocket.write(
+        latestGGA + "\r\n"
+    );
+
+
+    console.log(
+        "GGA sent to NTRIP caster:"
+    );
+
+
+    console.log(
+        latestGGA
+    );
+}
+
+
+// ======================================================
+// SEND GGA EVERY 10 SECONDS
+// ======================================================
+
+setInterval(() => {
+
+    sendGGA();
+
+}, 10000);
+
+
+// ======================================================
+// SEND GNSS DATA TO BACKEND
+// ======================================================
+
+async function sendToBackend(data) {
+
+    if (!BACKEND_URL) {
+
+        console.error(
+            "BACKEND_URL is not configured."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `${BACKEND_URL}/api/gnss`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+
+                    body:
+                        JSON.stringify(
+                            data
+                        ),
+                }
+            );
+
+
+        if (!response.ok) {
+
+            console.error(
+                "Backend error:",
+                response.status
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "GNSS data sent to backend:",
+            data
+        );
+
+    }
+    catch (err) {
+
+        console.error(
+            "Backend connection error:",
+            err.message
+        );
+    }
+}
+
+
+// ======================================================
+// COORDINATE PARSER
+// ======================================================
+
+function parseCoordinate(
+    value,
+    direction
+) {
+
+    if (!value) {
+        return null;
+    }
+
+
+    const raw =
+        Number(value);
+
+
+    if (
+        Number.isNaN(raw)
+    ) {
+
+        return null;
+    }
+
+
+    const degrees =
+        Math.floor(
+            raw / 100
+        );
+
+
+    const minutes =
+        raw -
+        degrees * 100;
+
+
+    let coordinate =
+        degrees +
+        minutes / 60;
+
+
+    if (
+        direction === "S" ||
+        direction === "W"
+    ) {
+
+        coordinate *= -1;
+    }
+
+
+    return coordinate;
+}
+
+
+// ======================================================
+// CONNECTION MONITOR
+// ======================================================
+
+setInterval(() => {
+
+    if (!serialConnected) {
+        return;
+    }
+
+
+    if (
+        lastGNSSDataTime === 0
+    ) {
+
+        return;
+    }
+
+
+    const elapsed =
+        Date.now() -
+        lastGNSSDataTime;
+
+
+    if (
+        elapsed >
+        DISCONNECT_TIMEOUT
+    ) {
+
+        console.log(
+            "No GNSS data received from Reach RX."
+        );
+    }
+
+}, 1000);
+
+
+// ======================================================
+// START
+// ======================================================
+
+connectSerial();
