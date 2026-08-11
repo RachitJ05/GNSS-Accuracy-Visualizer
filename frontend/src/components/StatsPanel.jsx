@@ -1,125 +1,324 @@
 import { useEffect, useState } from "react";
+
 import {
   FaLocationDot,
   FaSatelliteDish,
   FaBullseye,
   FaClock,
 } from "react-icons/fa6";
+
 import { MdGpsFixed } from "react-icons/md";
 
-function StatsPanel({ gnssData }) {
+
+function StatsPanel({
+  gnssData,
+  onRecordingChange,
+}) {
+
   const [secondsAgo, setSecondsAgo] = useState(0);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [mobileExpanded, setMobileExpanded] = useState(false);
-  const [mobileShowMore, setMobileShowMore] = useState(false);
+
+  const [isMobile, setIsMobile] = useState(
+    window.innerWidth <= 768
+  );
+
+  const [mobileExpanded, setMobileExpanded] =
+    useState(false);
+
+  const [mobileShowMore, setMobileShowMore] =
+    useState(false);
+
   const [recordStatus, setRecordStatus] = useState({
     recording: false,
     elapsed: 0,
     samples: 0,
   });
-  const currentTime = gnssData.timestamp ? new Date(gnssData.timestamp).toLocaleTimeString() : "--";
+
+
+  const currentTime = gnssData.timestamp
+    ? new Date(
+        gnssData.timestamp
+      ).toLocaleTimeString()
+    : "--";
+
+
+  // ======================================================
+  // Receiver disconnect timer
+  // ======================================================
 
   useEffect(() => {
+
     if (gnssData.connected) {
+
       setSecondsAgo(5);
+
       return;
     }
+
+
     const interval = setInterval(() => {
-      if (!gnssData.timestamp) return;
+
+      if (!gnssData.timestamp) {
+        return;
+      }
+
 
       const elapsed = Math.floor(
-        (Date.now() - new Date(gnssData.timestamp).getTime()) / 1000
+        (
+          Date.now() -
+          new Date(
+            gnssData.timestamp
+          ).getTime()
+        ) / 1000
       );
+
+
       setSecondsAgo(elapsed);
+
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [gnssData.connected, gnssData.timestamp]);
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_BACKEND_URL}/api/record/status`
-        );
-        const data = await response.json();
-        setRecordStatus(data);
-      }
-      catch (err) {
-        console.error(err);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    function handleResize(){
-      setIsMobile(window.innerWidth <= 768);
-    }
-    window.addEventListener("resize", handleResize);
     return () =>
-        window.removeEventListener("resize", handleResize);
+      clearInterval(interval);
+
+  }, [
+    gnssData.connected,
+    gnssData.timestamp,
+  ]);
+
+
+  // ======================================================
+  // Recording status
+  // ======================================================
+
+  useEffect(() => {
+
+    const interval = setInterval(
+      async () => {
+
+        try {
+
+          const response = await fetch(
+            `${import.meta.env.VITE_BACKEND_URL}/api/record/status`
+          );
+
+
+          const data =
+            await response.json();
+
+
+          setRecordStatus(data);
+
+        }
+        catch (err) {
+
+          console.error(
+            "Recording status error:",
+            err
+          );
+
+        }
+
+      },
+      1000
+    );
+
+
+    return () =>
+      clearInterval(interval);
+
   }, []);
+
+
+  // ======================================================
+  // Mobile detection
+  // ======================================================
+
+  useEffect(() => {
+
+    function handleResize() {
+
+      setIsMobile(
+        window.innerWidth <= 768
+      );
+
+    }
+
+
+    window.addEventListener(
+      "resize",
+      handleResize
+    );
+
+
+    return () => {
+
+      window.removeEventListener(
+        "resize",
+        handleResize
+      );
+
+    };
+
+  }, []);
+
+
+  // ======================================================
+  // Start / Stop Recording
+  // ======================================================
 
   async function handleRecording() {
+
+    // ----------------------------------------------------
+    // STOP
+    // ----------------------------------------------------
+
     if (recordStatus.recording) {
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/record/stop`,
-        {
-          method: "POST",
-        }
-      );
-      const data = await response.json();
-      if (data.file) {
-        window.open(
-          import.meta.env.VITE_BACKEND_URL + data.file,
-          "_blank"
+
+      try {
+
+        const response = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/record/stop`,
+          {
+            method: "POST",
+          }
         );
+
+
+        const data =
+          await response.json();
+
+
+        // Stop drawing the path
+        onRecordingChange(false);
+
+
+        // Open recorded Excel file
+        if (data.file) {
+
+          window.open(
+            import.meta.env.VITE_BACKEND_URL +
+              data.file,
+            "_blank"
+          );
+
+        }
+
       }
+      catch (err) {
+
+        console.error(
+          "Failed to stop recording:",
+          err
+        );
+
+      }
+
+      return;
     }
-    else {
+
+
+    // ----------------------------------------------------
+    // START
+    // ----------------------------------------------------
+
+    try {
+
       await fetch(
         `${import.meta.env.VITE_BACKEND_URL}/api/record/start`,
         {
           method: "POST",
         }
       );
+
+
+      // Start a NEW map path
+      onRecordingChange(true);
+
+    }
+    catch (err) {
+
+      console.error(
+        "Failed to start recording:",
+        err
+      );
+
     }
   }
 
+
+  // ======================================================
+  // Recording timer
+  // ======================================================
+
   const hours = String(
-    Math.floor(recordStatus.elapsed / 3600)
+    Math.floor(
+      recordStatus.elapsed / 3600
+    )
   ).padStart(2, "0");
 
+
   const minutes = String(
-    Math.floor((recordStatus.elapsed % 3600) / 60)
+    Math.floor(
+      (recordStatus.elapsed % 3600) / 60
+    )
   ).padStart(2, "0");
+
 
   const seconds = String(
     recordStatus.elapsed % 60
   ).padStart(2, "0");
 
+
+  // ======================================================
+  // DESKTOP LAYOUT
+  // ======================================================
+
   if (!isMobile) {
+
     return (
-        <div
+
+      <div
         className="stats-panel"
         style={{
-          opacity: gnssData.connected ? 1 : 0.7,
-          transition: "0.3s ease",
+          opacity:
+            gnssData.connected
+              ? 1
+              : 0.7,
+
+          transition:
+            "0.3s ease",
         }}
       >
+
+        {/* Header */}
+
         <div className="stats-header">
+
           <div className="stats-title">
+
             <div className="stats-icon">
+
               <FaSatelliteDish />
+
             </div>
 
+
             <div>
-              <h3>GNSS Information</h3>
-              <span>Live Receiver Data</span>
+
+              <h3>
+                GNSS Information
+              </h3>
+
+              <span>
+                Live Receiver Data
+              </span>
+
             </div>
+
           </div>
+
         </div>
+
 
         {/* Receiver Status */}
 
@@ -131,22 +330,30 @@ function StatsPanel({ gnssData }) {
             borderRadius: "10px",
             fontWeight: 600,
             textAlign: "center",
+
             background:
               gnssData.status === "connected"
                 ? "#d1fae5"
                 : "#fee2e2",
+
             color:
               gnssData.status === "connected"
                 ? "#065f46"
                 : "#991b1b",
           }}
         >
+
           {gnssData.status === "connected"
             ? "🟢 Receiver Connected"
             : "🔴 Receiver Disconnected"}
+
         </div>
 
+
+        {/* Last update */}
+
         {!gnssData.connected && (
+
           <div
             style={{
               marginBottom: "18px",
@@ -156,6 +363,7 @@ function StatsPanel({ gnssData }) {
               lineHeight: "20px",
             }}
           >
+
             <div>
               Last update
             </div>
@@ -166,10 +374,19 @@ function StatsPanel({ gnssData }) {
                 marginTop: "4px",
               }}
             >
-              {secondsAgo} second{secondsAgo !== 1 ? "s" : ""} ago
+
+              {secondsAgo} second
+              {secondsAgo !== 1 ? "s" : ""}
+              {" "}ago
+
             </div>
+
           </div>
+
         )}
+
+
+        {/* Record Button */}
 
         <div
           onClick={handleRecording}
@@ -184,149 +401,259 @@ function StatsPanel({ gnssData }) {
             transition: "0.3s",
             userSelect: "none",
 
-            background: recordStatus.recording
-              ? "#ef4444"
-              : "#2563eb",
+            background:
+              recordStatus.recording
+                ? "#ef4444"
+                : "#2563eb",
 
             color: "#fff",
           }}
         >
-          {recordStatus.recording ? "⏹ Stop" : "⏺ Record"}
+
+          {recordStatus.recording
+            ? "⏹ Stop"
+            : "⏺ Record"}
+
         </div>
 
-        {
-          recordStatus.recording && (
+
+        {/* Recording information */}
+
+        {recordStatus.recording && (
+
+          <div
+            style={{
+              textAlign: "center",
+              marginTop: "14px",
+              marginBottom: "14px",
+              color: "#555",
+              fontSize: "14px",
+              lineHeight: "24px",
+            }}
+          >
+
+            <div>
+              🔴 Recording...
+            </div>
+
             <div
               style={{
-                textAlign: "center",
-                marginTop: "14px",
-                marginBottom: "14px",
-                color: "#555",
-                fontSize: "14px",
-                lineHeight: "24px",
+                fontWeight: "600",
               }}
             >
-              <div>
 
-                🔴 Recording...
+              {hours}:{minutes}:{seconds}
 
-              </div>
-
-              <div
-                style={{
-                  fontWeight: "600",
-                }}
-              >
-                {hours}:{minutes}:{seconds}
-              </div>
-
-              <div>
-
-                {recordStatus.samples} Samples
-
-              </div>
             </div>
-          )
-        }
+
+            <div>
+
+              {recordStatus.samples}
+              {" "}Samples
+
+            </div>
+
+          </div>
+
+        )}
+
+
+        {/* Latitude */}
 
         <div className="info-row">
+
           <div className="label">
+
             <FaLocationDot />
+
             Latitude
+
           </div>
 
+
           <span className="value">
+
             {gnssData.latitude?.toFixed(6) ?? "--"}
+
           </span>
+
         </div>
 
+
+        {/* Longitude */}
+
         <div className="info-row">
+
           <div className="label">
+
             <FaLocationDot />
+
             Longitude
+
           </div>
 
+
           <span className="value">
+
             {gnssData.longitude?.toFixed(6) ?? "--"}
+
           </span>
+
         </div>
 
+
+        {/* Accuracy */}
+
         <div className="info-row">
+
           <div className="label">
+
             <FaBullseye />
+
             Accuracy
+
           </div>
 
+
           <span className="value">
-            {gnssData.accuracy?.toFixed(2) ?? "--"} m
+
+            {gnssData.accuracy?.toFixed(2) ?? "--"}
+            {" "}m
+
           </span>
+
         </div>
 
+
+        {/* Satellites */}
+
         <div className="info-row">
+
           <div className="label">
+
             <FaSatelliteDish />
+
             Satellites
+
           </div>
 
+
           <span className="value">
+
             {gnssData.satellites ?? "--"}
+
           </span>
+
         </div>
 
+
+        {/* HDOP */}
+
         <div className="info-row">
+
           <div className="label">
+
             <MdGpsFixed />
+
             HDOP
+
           </div>
+
 
           <span className="value">
+
             {gnssData.hdop ?? "--"}
+
           </span>
+
         </div>
 
+
+        {/* Fix Type */}
+
         <div className="info-row">
+
           <div className="label">
+
             <MdGpsFixed />
+
             Fix Type
+
           </div>
+
 
           <span className="status">
+
             {gnssData.fixType ?? "--"}
+
           </span>
+
         </div>
+
+
+        {/* Time */}
 
         <div className="info-row">
+
           <div className="label">
+
             <FaClock />
+
             Time
+
           </div>
 
+
           <span className="value">
+
             {currentTime}
+
           </span>
+
         </div>
+
       </div>
     );
   }
 
+
+  // ======================================================
+  // MOBILE LAYOUT
+  // ======================================================
+
   return (
+
     <div
       className="stats-panel mobile"
       style={{
-        opacity: gnssData.connected ? 1 : 0.75,
-        transition: "0.3s ease",
+        opacity:
+          gnssData.connected
+            ? 1
+            : 0.75,
+
+        transition:
+          "0.3s ease",
       }}
     >
-      {/* Header */}
+
+      {/* ==================================================
+          Mobile Header
+      ================================================== */}
 
       <div
         className="mobile-stats-header"
-        onClick={() => setMobileExpanded(!mobileExpanded)}
+        onClick={() =>
+          setMobileExpanded(
+            !mobileExpanded
+          )
+        }
         style={{
           cursor: "pointer",
         }}
       >
+
         <div>
+
           <h3
             style={{
               margin: 0,
@@ -335,21 +662,28 @@ function StatsPanel({ gnssData }) {
             GNSS Information
           </h3>
 
+
           <span
             style={{
               fontSize: "13px",
+
               color:
                 gnssData.connected
                   ? "#059669"
                   : "#dc2626",
+
               fontWeight: "600",
             }}
           >
+
             {gnssData.connected
               ? "🟢 Receiver Connected"
               : "🔴 Receiver Disconnected"}
+
           </span>
+
         </div>
+
 
         <div
           style={{
@@ -358,16 +692,27 @@ function StatsPanel({ gnssData }) {
             fontWeight: "600",
           }}
         >
-          {mobileExpanded ? "▲" : "▼"}
+
+          {mobileExpanded
+            ? "▲"
+            : "▼"}
+
         </div>
+
       </div>
 
-      {/* Expanded Content */}
+
+      {/* ==================================================
+          Mobile Expanded Content
+      ================================================== */}
 
       {mobileExpanded && (
+
         <>
 
-          {/* Record Button */}
+          {/* ----------------------------------------------
+              Record Button
+          ---------------------------------------------- */}
 
           <div
             onClick={handleRecording}
@@ -378,19 +723,30 @@ function StatsPanel({ gnssData }) {
               cursor: "pointer",
               textAlign: "center",
               fontWeight: "600",
-              background: recordStatus.recording
-                ? "#ef4444"
-                : "#2563eb",
+
+              background:
+                recordStatus.recording
+                  ? "#ef4444"
+                  : "#2563eb",
+
               color: "#fff",
               userSelect: "none",
             }}
           >
-            {recordStatus.recording ? "⏹ Stop" : "⏺ Record"}
+
+            {recordStatus.recording
+              ? "⏹ Stop"
+              : "⏺ Record"}
+
           </div>
 
-          {/* Recording Status */}
+
+          {/* ----------------------------------------------
+              Recording Status
+          ---------------------------------------------- */}
 
           {recordStatus.recording && (
+
             <div
               style={{
                 textAlign: "center",
@@ -401,62 +757,115 @@ function StatsPanel({ gnssData }) {
                 lineHeight: "22px",
               }}
             >
-              <div>🔴 Recording...</div>
+
+              <div>
+                🔴 Recording...
+              </div>
 
               <div
                 style={{
                   fontWeight: "600",
                 }}
               >
+
                 {hours}:{minutes}:{seconds}
+
               </div>
 
               <div>
-                {recordStatus.samples} Samples
+
+                {recordStatus.samples}
+                {" "}Samples
+
               </div>
+
             </div>
+
           )}
 
-          {/* Important Information */}
 
-          <div className="info-row">
-            <div className="label">
-              <FaLocationDot />
+          {/* ----------------------------------------------
               Latitude
-            </div>
-
-            <span className="value">
-              {gnssData.latitude?.toFixed(6) ?? "--"}
-            </span>
-          </div>
+          ---------------------------------------------- */}
 
           <div className="info-row">
+
             <div className="label">
+
               <FaLocationDot />
-              Longitude
+
+              Latitude
+
             </div>
 
+
             <span className="value">
-              {gnssData.longitude?.toFixed(6) ?? "--"}
+
+              {gnssData.latitude?.toFixed(6) ?? "--"}
+
             </span>
+
           </div>
+
+
+          {/* ----------------------------------------------
+              Longitude
+          ---------------------------------------------- */}
 
           <div className="info-row">
+
             <div className="label">
-              <FaBullseye />
-              Accuracy
+
+              <FaLocationDot />
+
+              Longitude
+
             </div>
 
+
             <span className="value">
-              {gnssData.accuracy?.toFixed(2) ?? "--"} m
+
+              {gnssData.longitude?.toFixed(6) ?? "--"}
+
             </span>
+
           </div>
 
-          {/* More Button */}
+
+          {/* ----------------------------------------------
+              Accuracy
+          ---------------------------------------------- */}
+
+          <div className="info-row">
+
+            <div className="label">
+
+              <FaBullseye />
+
+              Accuracy
+
+            </div>
+
+
+            <span className="value">
+
+              {gnssData.accuracy?.toFixed(2) ?? "--"}
+              {" "}m
+
+            </span>
+
+          </div>
+
+
+          {/* ----------------------------------------------
+              Show More
+          ---------------------------------------------- */}
 
           <div
             onClick={() =>
-              setMobileShowMore(!mobileShowMore)
+              setMobileShowMore(
+                !mobileShowMore
+              )
             }
             style={{
               marginTop: "14px",
@@ -468,61 +877,114 @@ function StatsPanel({ gnssData }) {
               userSelect: "none",
             }}
           >
+
             {mobileShowMore
               ? "Show Less ▲"
               : "Show More ▼"}
+
           </div>
 
-          {/* Remaining Information */}
+
+          {/* ----------------------------------------------
+              Remaining Information
+          ---------------------------------------------- */}
 
           {mobileShowMore && (
+
             <>
 
+              {/* Satellites */}
+
               <div className="info-row">
+
                 <div className="label">
+
                   <FaSatelliteDish />
+
                   Satellites
+
                 </div>
 
+
                 <span className="value">
+
                   {gnssData.satellites ?? "--"}
+
                 </span>
+
               </div>
 
+
+              {/* HDOP */}
+
               <div className="info-row">
+
                 <div className="label">
+
                   <MdGpsFixed />
+
                   HDOP
+
                 </div>
+
 
                 <span className="value">
+
                   {gnssData.hdop ?? "--"}
+
                 </span>
+
               </div>
 
+
+              {/* Fix Type */}
+
               <div className="info-row">
+
                 <div className="label">
+
                   <MdGpsFixed />
+
                   Fix Type
+
                 </div>
+
 
                 <span className="status">
+
                   {gnssData.fixType ?? "--"}
+
                 </span>
+
               </div>
+
+
+              {/* Time */}
 
               <div className="info-row">
+
                 <div className="label">
+
                   <FaClock />
+
                   Time
+
                 </div>
 
+
                 <span className="value">
+
                   {currentTime}
+
                 </span>
+
               </div>
 
+
+              {/* Last update */}
+
               {!gnssData.connected && (
+
                 <div
                   style={{
                     marginTop: "14px",
@@ -531,17 +993,25 @@ function StatsPanel({ gnssData }) {
                     fontSize: "13px",
                   }}
                 >
-                  Last update {secondsAgo}s ago
+
+                  Last update{" "}
+                  {secondsAgo}s ago
+
                 </div>
+
               )}
 
             </>
+
           )}
 
         </>
+
       )}
+
     </div>
   );
 }
+
 
 export default StatsPanel;
