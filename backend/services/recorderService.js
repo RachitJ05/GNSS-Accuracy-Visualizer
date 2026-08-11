@@ -1,96 +1,147 @@
-import fs from "fs";
-import path from "path";
+import XLSX from "xlsx";
 
 let recording = false;
-
-let stream = null;
 
 let samples = 0;
 
 let startedAt = null;
 
-let currentFile = "";
+let recordedData = [];
 
-const recordingsFolder = path.join(process.cwd(), "recordings");
+let currentFilename = "";
 
-if (!fs.existsSync(recordingsFolder)) {
-    fs.mkdirSync(recordingsFolder);
-}
 
 export function startRecording() {
 
-    if (recording)
-        return;
+  if (recording) {
+    return;
+  }
 
-    const filename =
-        "GNSS_" +
-        new Date()
-            .toISOString()
-            .replace(/:/g, "-")
-            .replace(/\..+/, "") +
-        ".csv";
 
-    currentFile = path.join(
-        recordingsFolder,
-        filename
-    );
+  // Create IST timestamp for filename
 
-    stream = fs.createWriteStream(currentFile);
+  const timestamp =
+    new Date()
+      .toLocaleString("sv-SE", {
+        timeZone: "Asia/Kolkata",
+        hour12: false,
+      })
+      .replace(" ", "_")
+      .replace(/:/g, "-")
+      .replace(/\./g, "-");
 
-    stream.write(
-        "Timestamp,Latitude,Longitude,Accuracy,Satellites,HDOP,FixType,Mode,Connected\n"
-    );
 
-    recording = true;
+  currentFilename =
+    `GNSS_Recording_${timestamp}.xlsx`;
 
-    samples = 0;
 
-    startedAt = Date.now();
+  // Reset recording data
 
+  recordedData = [];
+
+  samples = 0;
+
+  startedAt = Date.now();
+
+  recording = true;
 }
+
 
 export function stopRecording() {
 
-    if (!recording)
-        return null;
+  if (!recording) {
+    return null;
+  }
 
-    recording = false;
 
-    stream.end();
+  recording = false;
 
-    return "/recordings/"+path.basename(currentFile);
 
+  // Create workbook
+
+  const workbook =
+    XLSX.utils.book_new();
+
+
+  // Create worksheet
+
+  const worksheet =
+    XLSX.utils.aoa_to_sheet([
+      [
+        "Timestamp",
+        "Latitude",
+        "Longitude",
+        "Altitude (m)",
+        "Accuracy (m)",
+        "Satellites",
+        "HDOP",
+        "FixType",
+      ],
+
+      ...recordedData,
+    ]);
+
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    worksheet,
+    "GNSS Recording"
+  );
+
+
+  // Generate XLSX in memory
+
+  const buffer =
+    XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    });
+
+
+  return {
+    filename: currentFilename,
+    buffer,
+  };
 }
+
 
 export function appendRecord(data) {
 
-    if (!recording)
-        return;
+  if (!recording) {
+    return;
+  }
 
-    stream.write(
-        `${data.timestamp},${data.latitude},${data.longitude},${data.accuracy},${data.satellites},${data.hdop},${data.fixType},${data.mode},${data.connected}\n`
-    );
 
-    samples++;
+  recordedData.push([
+    data.timestamp ?? "",
+    data.latitude ?? "",
+    data.longitude ?? "",
+    data.altitude ?? "",
+    data.accuracy ?? "",
+    data.satellites ?? "",
+    data.hdop ?? "",
+    data.fixType ?? "",
+  ]);
 
+
+  samples++;
 }
+
 
 export function getRecorderStatus() {
 
-    return {
+  return {
 
-        recording,
+    recording,
 
-        samples,
+    samples,
 
-        elapsed:
+    elapsed:
+      startedAt == null
+        ? 0
+        : Math.floor(
+            (Date.now() - startedAt) / 1000
+          ),
 
-            startedAt == null
-
-                ? 0
-
-                : Math.floor(
-                    (Date.now() - startedAt) / 1000
-                ),
-    };
+  };
 }

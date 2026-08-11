@@ -5,6 +5,7 @@ import initializeSocket from "./config/socket.js";
 import { getGnssData, updateReceiverPacket, getReceiverState } from "./services/gnssService.js";
 import { broadcastGnss } from "./services/broadcaster.js";
 import { startRecording, stopRecording, getRecorderStatus } from "./services/recorderService.js";
+import { createCaptureWorkbook } from "./services/captureService.js";
 import path from "path";
 import dotenv from "dotenv";
 dotenv.config();
@@ -67,17 +68,106 @@ app.post("/api/record/start", (req, res) => {
 });
 
 app.post("/api/record/stop", (req, res) => {
-  const file = stopRecording();
-  res.json({
-    success: true,
-    file,
-  });
+  try {
+    const result = stopRecording();
+    if (!result) {
+      return res.status(400).json({
+        success: false,
+        message: "No active recording",
+      });
+    }
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${result.filename}"`
+    );
+
+    res.setHeader(
+      "Access-Control-Expose-Headers",
+      "Content-Disposition"
+    );
+
+    res.setHeader(
+      "Content-Length",
+      result.buffer.length
+    );
+
+    res.send(result.buffer);
+  }
+  catch (err) {
+    console.error(
+      "Recording stop error:",
+      err
+    );
+    res.status(500).json({
+      success: false,
+      message:
+        "Failed to create recording file",
+    });
+  }
 });
 
 app.get("/api/record/status", (req, res) => {
   res.json(
     getRecorderStatus()
   );
+});
+
+app.post("/api/capture", (req, res) => {
+  try {
+    const buffer = createCaptureWorkbook(req.body);
+
+    const now = new Date();
+
+    const istTimestamp = now
+      .toLocaleString("sv-SE", {
+        timeZone: "Asia/Kolkata",
+        hour12: false,
+      })
+      .replace(" ", "_")
+      .replace(/:/g, "-")
+      .replace(/\./g, "-");
+
+    const filename =
+      `GNSS_Capture_${istTimestamp}.xlsx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename}"`
+    );
+
+    // Important for frontend JavaScript to be able
+    // to read the filename header
+    res.setHeader(
+      "Access-Control-Expose-Headers",
+      "Content-Disposition"
+    );
+
+    res.send(buffer);
+
+  } catch (err) {
+
+    console.error(
+      "Capture error:",
+      err
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Failed to create GNSS capture file",
+    });
+  }
 });
 
 app.get("/", (req, res) => {

@@ -168,9 +168,9 @@ function StatsPanel({
 
   async function handleRecording() {
 
-    // ----------------------------------------------------
-    // STOP
-    // ----------------------------------------------------
+    // ==================================================
+    // STOP RECORDING
+    // ==================================================
 
     if (recordStatus.recording) {
 
@@ -184,46 +184,125 @@ function StatsPanel({
         );
 
 
-        const data =
-          await response.json();
+        if (!response.ok) {
+
+          let message =
+            "Failed to stop recording.";
+
+          try {
+
+            const errorData =
+              await response.json();
+
+            message =
+              errorData.message ||
+              message;
+
+          }
+          catch {
+            // Response wasn't JSON
+          }
+
+          throw new Error(message);
+        }
 
 
-        // Stop drawing the path
-        onRecordingChange(false);
+        // Get XLSX file
+
+        const blob =
+          await response.blob();
 
 
-        // Open recorded Excel file
-        if (data.file) {
+        // Get filename from backend
 
-          window.open(
-            import.meta.env.VITE_BACKEND_URL +
-              data.file,
-            "_blank"
+        const contentDisposition =
+          response.headers.get(
+            "Content-Disposition"
           );
 
+
+        let filename =
+          "GNSS_Recording.xlsx";
+
+
+        if (contentDisposition) {
+
+          const match =
+            contentDisposition.match(
+              /filename="([^"]+)"/
+            );
+
+
+          if (match) {
+            filename = match[1];
+          }
+
         }
+
+
+        // Create download URL
+
+        const url =
+          window.URL.createObjectURL(
+            blob
+          );
+
+
+        // Create download link
+
+        const link =
+          document.createElement("a");
+
+
+        link.href = url;
+
+        link.download = filename;
+
+
+        document.body.appendChild(link);
+
+        link.click();
+
+        document.body.removeChild(link);
+
+
+        // Clean up
+
+        window.URL.revokeObjectURL(url);
+
+
+        // Stop map path recording
+
+        onRecordingChange(false);
 
       }
       catch (err) {
 
         console.error(
-          "Failed to stop recording:",
+          "Stop recording error:",
           err
         );
 
+
+        alert(
+          err.message ||
+          "Failed to stop recording."
+        );
+
       }
+
 
       return;
     }
 
 
-    // ----------------------------------------------------
-    // START
-    // ----------------------------------------------------
+    // ==================================================
+    // START RECORDING
+    // ==================================================
 
     try {
 
-      await fetch(
+      const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL}/api/record/start`,
         {
           method: "POST",
@@ -231,17 +310,159 @@ function StatsPanel({
       );
 
 
+      if (!response.ok) {
+
+        throw new Error(
+          "Failed to start recording."
+        );
+
+      }
+
+
       // Start a NEW map path
+
       onRecordingChange(true);
 
     }
     catch (err) {
 
       console.error(
-        "Failed to start recording:",
+        "Start recording error:",
         err
       );
 
+
+      alert(
+        err.message ||
+        "Failed to start recording."
+      );
+
+    }
+  }
+
+  async function handleCapture() {
+
+    if (
+      gnssData.latitude == null ||
+      gnssData.longitude == null
+    ) {
+
+      alert(
+        "No valid GNSS position available."
+      );
+
+      return;
+    }
+
+    try {
+
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/capture`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify(gnssData),
+        }
+      );
+
+
+      if (!response.ok) {
+
+        let message =
+          "Failed to capture GNSS sample.";
+
+        try {
+
+          const errorData =
+            await response.json();
+
+          message =
+            errorData.message ||
+            message;
+
+        } catch {
+          // Response wasn't JSON
+        }
+
+        throw new Error(message);
+      }
+
+
+      // Get XLSX file
+      const blob =
+        await response.blob();
+
+
+      // Get filename sent by backend
+      const contentDisposition =
+        response.headers.get(
+          "Content-Disposition"
+        );
+
+
+      let filename =
+        "GNSS_Capture.xlsx";
+
+
+      if (contentDisposition) {
+
+        const match =
+          contentDisposition.match(
+            /filename="([^"]+)"/
+          );
+
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+
+      // Create temporary download URL
+      const url =
+        window.URL.createObjectURL(blob);
+
+
+      // Create download link
+      const link =
+        document.createElement("a");
+
+      link.href = url;
+
+      link.download = filename;
+
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      document.body.removeChild(link);
+
+
+      // Clean up
+      window.URL.revokeObjectURL(url);
+
+
+      console.log(
+        "GNSS sample captured:",
+        gnssData
+      );
+
+    }
+    catch (err) {
+
+      console.error(
+        "Capture error:",
+        err
+      );
+
+      alert(
+        err.message ||
+        "Failed to capture GNSS sample."
+      );
     }
   }
 
@@ -414,6 +635,29 @@ function StatsPanel({
             ? "⏹ Stop"
             : "⏺ Record"}
 
+        </div>
+
+
+        <div
+          onClick={handleCapture}
+          style={{
+            marginTop: "10px",
+            padding: "12px",
+            borderRadius: "12px",
+            cursor: "pointer",
+            textAlign: "center",
+            fontWeight: "600",
+            fontSize: "16px",
+            transition: "0.3s",
+            userSelect: "none",
+
+            background: "#f3f4f6",
+            color: "#2563eb",
+
+            border: "1px solid #dbe3f0",
+          }}
+        >
+          📷 Capture
         </div>
 
 
@@ -738,6 +982,29 @@ function StatsPanel({
               ? "⏹ Stop"
               : "⏺ Record"}
 
+          </div>
+
+
+          {/* Capture Button */}
+
+          <div
+            onClick={handleCapture}
+            style={{
+              marginTop: "10px",
+              padding: "11px",
+              borderRadius: "10px",
+              cursor: "pointer",
+              textAlign: "center",
+              fontWeight: "600",
+              userSelect: "none",
+
+              background: "#f3f4f6",
+              color: "#2563eb",
+
+              border: "1px solid #dbe3f0",
+            }}
+          >
+            📷 Capture
           </div>
 
 
