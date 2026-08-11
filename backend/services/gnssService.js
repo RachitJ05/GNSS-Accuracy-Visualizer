@@ -2,7 +2,6 @@ import SimulatorDriver from "../drivers/simulatorDriver.js";
 import ESP32Driver from "../drivers/esp32Driver.js";
 import receiverState from "./receiverState.js";
 import { appendRecord } from "./recorderService.js";
-import ReachRxDriver from "../drivers/reachRxDriver.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -13,8 +12,6 @@ if (DRIVER === "simulator") {
   driver = new SimulatorDriver();
 } else if (DRIVER === "esp32") {
   driver = new ESP32Driver();
-} else if (DRIVER === "reachrx") {
-  driver = new ReachRxDriver();
 }
 
 if (driver && typeof driver.connect === "function") {
