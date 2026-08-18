@@ -351,16 +351,36 @@ function StatsPanel({
           await response.blob();
 
 
-        const now = new Date();
+        // ==============================================
+        // Get filename from backend
+        // ==============================================
 
-        const timestamp =
-          now.toISOString()
-            .slice(0, 19)
-            .replace("T", "_")
-            .replace(/:/g, "-");
+        const contentDisposition =
+          response.headers.get(
+            "Content-Disposition"
+          );
+
 
         let filename =
-          `GNSS_Recording_${timestamp}.xlsx`;
+          "GNSS_Recording.xlsx";
+
+
+        if (contentDisposition) {
+
+          const match =
+            contentDisposition.match(
+              /filename="([^"]+)"/
+            );
+
+
+          if (match) {
+
+            filename =
+              match[1];
+
+          }
+
+        }
 
 
         // ==============================================
@@ -514,16 +534,36 @@ function StatsPanel({
         await response.blob();
 
 
-      const now = new Date();
+      // ==============================================
+      // Get filename sent by backend
+      // ==============================================
 
-      const timestamp =
-        now.toISOString()
-          .slice(0, 19)
-          .replace("T", "_")
-          .replace(/:/g, "-");
+      const contentDisposition =
+        response.headers.get(
+          "Content-Disposition"
+        );
+
 
       let filename =
-        `GNSS_Capture_${timestamp}.xlsx`;
+        "GNSS_Capture.xlsx";
+
+
+      if (contentDisposition) {
+
+        const match =
+          contentDisposition.match(
+            /filename="([^"]+)"/
+          );
+
+
+        if (match) {
+
+          filename =
+            match[1];
+
+        }
+
+      }
 
 
       // ==============================================
