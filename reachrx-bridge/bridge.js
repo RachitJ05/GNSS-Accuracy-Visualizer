@@ -5,17 +5,30 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const SERIAL_PORT = process.env.REACH_PORT || "COM3";
-const BAUD_RATE = Number(process.env.REACH_BAUD || 115200);
+const SERIAL_PORT =
+    process.env.REACH_PORT || "COM3";
 
-const BACKEND_URL = process.env.BACKEND_URL;
+const BAUD_RATE =
+    Number(process.env.REACH_BAUD || 115200);
 
-const NTRIP_HOST = process.env.NTRIP_HOST;
-const NTRIP_PORT = Number(process.env.NTRIP_PORT || 2101);
-const NTRIP_MOUNTPOINT = process.env.NTRIP_MOUNTPOINT || "MSM5";
+const BACKEND_URL =
+    process.env.BACKEND_URL;
 
-const NTRIP_USERNAME = process.env.NTRIP_USERNAME;
-const NTRIP_PASSWORD = process.env.NTRIP_PASSWORD;
+const NTRIP_HOST =
+    process.env.NTRIP_HOST;
+
+const NTRIP_PORT =
+    Number(process.env.NTRIP_PORT || 2101);
+
+const NTRIP_MOUNTPOINT =
+    process.env.NTRIP_MOUNTPOINT || "MSM5";
+
+const NTRIP_USERNAME =
+    process.env.NTRIP_USERNAME;
+
+const NTRIP_PASSWORD =
+    process.env.NTRIP_PASSWORD;
+
 
 let serialPort = null;
 let parser = null;
@@ -28,10 +41,35 @@ let serialConnected = false;
 let ntripConnected = false;
 let headersReceived = false;
 
+
+/*
+ * Time of the last GNSS data packet.
+ */
 let lastGNSSDataTime = 0;
+
+
+/*
+ * Whether the backend currently considers
+ * the receiver connected.
+ */
+let receiverConnected = false;
+
+
 let rtcmBytes = 0;
 
+
+/*
+ * Receiver is considered disconnected
+ * after 5 seconds without GNSS data.
+ */
 const DISCONNECT_TIMEOUT = 5000;
+
+
+/*
+ * Prevent repeatedly sending the
+ * disconnected payload every second.
+ */
+let disconnectedStatusSent = false;
 
 
 // ======================================================
@@ -44,10 +82,12 @@ function connectSerial() {
         `Connecting to Reach RX on ${SERIAL_PORT}...`
     );
 
+
     serialPort = new SerialPort({
         path: SERIAL_PORT,
         baudRate: BAUD_RATE,
     });
+
 
     parser = serialPort.pipe(
         new ReadlineParser({
@@ -101,6 +141,11 @@ function connectSerial() {
             "Reach RX disconnected"
         );
 
+
+        /*
+         * Stop NTRIP because the receiver
+         * is no longer available.
+         */
         if (ntripSocket) {
 
             ntripSocket.destroy();
@@ -108,8 +153,20 @@ function connectSerial() {
             ntripSocket = null;
         }
 
+
         ntripConnected = false;
         headersReceived = false;
+
+
+        /*
+         * IMPORTANT:
+         *
+         * We do NOT immediately tell the backend
+         * that the receiver is disconnected.
+         *
+         * The watchdog below waits 5 seconds
+         * from the last GNSS packet.
+         */
     });
 
 
@@ -120,6 +177,7 @@ function connectSerial() {
     parser.on("data", async (line) => {
 
         line = line.trim();
+
 
         if (!line.startsWith("$")) {
             return;
@@ -135,7 +193,9 @@ function connectSerial() {
             line.startsWith("$GPGST")
         ) {
 
-            const fields = line.split(",");
+            const fields =
+                line.split(",");
+
 
             latestGST = {
 
@@ -151,6 +211,7 @@ function connectSerial() {
                     ),
             };
 
+
             return;
         }
 
@@ -163,6 +224,7 @@ function connectSerial() {
             !line.startsWith("$GNGGA") &&
             !line.startsWith("$GPGGA")
         ) {
+
             return;
         }
 
@@ -176,85 +238,107 @@ function connectSerial() {
 
         if (!ntripSocket) {
 
-        console.log(
-            "First GGA received - connecting to NTRIP..."
-        );
+            console.log(
+                "First GGA received - connecting to NTRIP..."
+            );
 
-        connectNTRIP();
-
-    }
+            connectNTRIP();
+        }
 
 
         // ----------------------------------------------
         // Parse GGA
         // ----------------------------------------------
 
-        const fields = line.split(",");
+        const fields =
+            line.split(",");
 
 
-        const latitude = parseCoordinate(
-            fields[2],
-            fields[3]
-        );
+        const latitude =
+            parseCoordinate(
+                fields[2],
+                fields[3]
+            );
 
 
-        const longitude = parseCoordinate(
-            fields[4],
-            fields[5]
-        );
+        const longitude =
+            parseCoordinate(
+                fields[4],
+                fields[5]
+            );
 
 
-        const quality = Number(
-            fields[6]
-        );
+        const quality =
+            Number(fields[6]);
 
 
-        const satellites = Number(
-            fields[7]
-        );
+        const satellites =
+            Number(fields[7]);
 
 
-        const hdop = Number(
-            fields[8]
-        );
+        const hdop =
+            Number(fields[8]);
 
 
-        const altitude = Number(
-            fields[9]
-        );
+        const altitude =
+            Number(fields[9]);
 
 
         // ----------------------------------------------
         // Fix type
         // ----------------------------------------------
 
-        let fixType = "Unknown";
+        let fixType =
+            "Unknown";
 
 
         switch (quality) {
 
             case 0:
-                fixType = "Invalid";
+
+                fixType =
+                    "Invalid";
+
                 break;
+
 
             case 1:
-                fixType = "Single";
+
+                fixType =
+                    "Single";
+
                 break;
+
 
             case 2:
-                fixType = "DGPS";
+
+                fixType =
+                    "DGPS";
+
                 break;
+
 
             case 4:
-                fixType = "RTK Fixed";
+
+                fixType =
+                    "RTK Fixed";
+
                 break;
+
 
             case 5:
-                fixType = "RTK Float";
+
+                fixType =
+                    "RTK Float";
+
                 break;
 
+
             case 6:
-                fixType = "Dead Reckoning";
+
+                fixType =
+                    "Dead Reckoning";
+
                 break;
         }
 
@@ -276,12 +360,13 @@ function connectSerial() {
             )
         ) {
 
-            accuracy = Number(
-                Math.max(
-                    latestGST.latitudeError,
-                    latestGST.longitudeError
-                ).toFixed(2)
-            );
+            accuracy =
+                Number(
+                    Math.max(
+                        latestGST.latitudeError,
+                        latestGST.longitudeError
+                    ).toFixed(2)
+                );
         }
 
 
@@ -314,7 +399,26 @@ function connectSerial() {
         };
 
 
-        lastGNSSDataTime = Date.now();
+        /*
+         * Update last GNSS packet time.
+         */
+        lastGNSSDataTime =
+            Date.now();
+
+
+        /*
+         * Receiver is alive again.
+         */
+        receiverConnected =
+            true;
+
+
+        /*
+         * Allow a future disconnect event
+         * to be sent if GNSS stops again.
+         */
+        disconnectedStatusSent =
+            false;
 
 
         // ----------------------------------------------
@@ -354,9 +458,12 @@ function connectNTRIP() {
     );
 
 
-    ntripSocket = new net.Socket();
+    ntripSocket =
+        new net.Socket();
 
-    headersReceived = false;
+
+    headersReceived =
+        false;
 
 
     ntripSocket.connect(
@@ -421,6 +528,7 @@ function connectNTRIP() {
                         "Sending initial GGA to NTRIP caster:"
                     );
 
+
                     console.log(
                         latestGGA
                     );
@@ -447,10 +555,6 @@ function connectNTRIP() {
         // ----------------------------------------------
 
         if (!headersReceived) {
-
-            // Keep collecting response data
-            // until we know whether this is a
-            // correction stream or an error.
 
             const text =
                 chunk.toString("ascii");
@@ -516,9 +620,11 @@ function connectNTRIP() {
                 );
 
 
-                headersReceived = true;
+                headersReceived =
+                    true;
 
-                ntripConnected = true;
+                ntripConnected =
+                    true;
 
 
                 // --------------------------------------
@@ -527,11 +633,15 @@ function connectNTRIP() {
 
                 const headerEnd =
                     chunk.indexOf(
-                        Buffer.from("\r\n\r\n")
+                        Buffer.from(
+                            "\r\n\r\n"
+                        )
                     );
 
 
-                if (headerEnd !== -1) {
+                if (
+                    headerEnd !== -1
+                ) {
 
                     const rtcmData =
                         chunk.subarray(
@@ -574,9 +684,12 @@ function connectNTRIP() {
 
     ntripSocket.on("error", (err) => {
 
-        ntripConnected = false;
+        ntripConnected =
+            false;
 
-        headersReceived = false;
+        headersReceived =
+            false;
+
 
         console.error(
             "NTRIP error:",
@@ -591,16 +704,20 @@ function connectNTRIP() {
 
     ntripSocket.on("close", () => {
 
-        ntripConnected = false;
+        ntripConnected =
+            false;
 
-        headersReceived = false;
+        headersReceived =
+            false;
+
 
         console.log(
             "NTRIP connection closed"
         );
 
 
-        ntripSocket = null;
+        ntripSocket =
+            null;
     });
 }
 
@@ -629,7 +746,8 @@ function writeRTCM(data) {
     );
 
 
-    rtcmBytes += data.length;
+    rtcmBytes +=
+        data.length;
 
 
     console.log(
@@ -686,7 +804,9 @@ setInterval(() => {
 // SEND GNSS DATA TO BACKEND
 // ======================================================
 
-async function sendToBackend(data) {
+async function sendToBackend(
+    data
+) {
 
     if (!BACKEND_URL) {
 
@@ -736,12 +856,127 @@ async function sendToBackend(data) {
         );
 
     }
+
     catch (err) {
 
         console.error(
             "Backend connection error:",
             err.message
         );
+    }
+}
+
+
+// ======================================================
+// SEND DISCONNECTED STATUS TO BACKEND
+// ======================================================
+
+async function sendDisconnectedStatus() {
+
+    if (!BACKEND_URL) {
+
+        console.error(
+            "BACKEND_URL is not configured."
+        );
+
+        return;
+    }
+
+
+    /*
+     * Only send once for each disconnect event.
+     */
+    if (
+        disconnectedStatusSent
+    ) {
+
+        return;
+    }
+
+
+    disconnectedStatusSent =
+        true;
+
+
+    receiverConnected =
+        false;
+
+
+    const disconnectedData = {
+
+        connected: false,
+
+        status: "disconnected",
+
+        timestamp:
+            new Date().toISOString(),
+    };
+
+
+    try {
+
+        const response =
+            await fetch(
+                `${BACKEND_URL}/api/gnss`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+
+                    body:
+                        JSON.stringify(
+                            disconnectedData
+                        ),
+                }
+            );
+
+
+        if (!response.ok) {
+
+            console.error(
+                "Backend disconnect status error:",
+                response.status
+            );
+
+            /*
+             * Allow another attempt on the
+             * next watchdog cycle.
+             */
+            disconnectedStatusSent =
+                false;
+
+            return;
+        }
+
+
+        console.log(
+            "Reach RX disconnected - backend updated after 5 seconds."
+        );
+
+
+        console.log(
+            "GNSS disconnect status sent:",
+            disconnectedData
+        );
+
+    }
+
+    catch (err) {
+
+        console.error(
+            "Backend connection error while sending disconnect status:",
+            err.message
+        );
+
+
+        /*
+         * Allow retry if backend request failed.
+         */
+        disconnectedStatusSent =
+            false;
     }
 }
 
@@ -756,6 +991,7 @@ function parseCoordinate(
 ) {
 
     if (!value) {
+
         return null;
     }
 
@@ -807,15 +1043,25 @@ function parseCoordinate(
 
 setInterval(() => {
 
-    if (!serialConnected) {
-        return;
-    }
+    /*
+     * We intentionally DO NOT return just because
+     * serialConnected is false.
+     *
+     * If Reach RX was unplugged, serialConnected
+     * becomes false, but we still need to wait
+     * 5 seconds from the LAST GNSS packet and
+     * then notify the backend.
+     */
 
 
     if (
         lastGNSSDataTime === 0
     ) {
 
+        /*
+         * No GNSS data has ever been received,
+         * so there is nothing to time out yet.
+         */
         return;
     }
 
@@ -826,13 +1072,27 @@ setInterval(() => {
 
 
     if (
-        elapsed >
+        elapsed >=
         DISCONNECT_TIMEOUT
     ) {
 
-        console.log(
-            "No GNSS data received from Reach RX."
-        );
+        if (
+            receiverConnected &&
+            !disconnectedStatusSent
+        ) {
+
+            console.log(
+                "No GNSS data received from Reach RX for 5 seconds."
+            );
+
+
+            console.log(
+                "Marking Reach RX as disconnected..."
+            );
+
+
+            sendDisconnectedStatus();
+        }
     }
 
 }, 1000);

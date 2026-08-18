@@ -37,7 +37,7 @@ if (DRIVER === "simulator") {
   }, 1000);
 }
 
-setInterval(() => {             // ESP32 disconnect checker
+setInterval(() => {             // Disconnect checker
   if (DRIVER !== "esp32" && DRIVER !== "bridge") return;
   const state = getReceiverState();
   if (!state.connected) return;

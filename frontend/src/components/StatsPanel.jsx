@@ -47,24 +47,43 @@ function StatsPanel({
 
   useEffect(() => {
 
-  if (gnssData.connected) {
-    setSecondsAgo(0);
-    return;
-  }
+    if (gnssData.connected) {
 
-  // When disconnected state is first received,
-  // start the display at 5 seconds.
-  setSecondsAgo(5);
+      setSecondsAgo(5);
 
-  const interval = setInterval(() => {
+      return;
+    }
 
-    setSecondsAgo((prev) => prev + 1);
 
-  }, 1000);
+    const interval = setInterval(() => {
 
-  return () => clearInterval(interval);
+      if (!gnssData.timestamp) {
+        return;
+      }
 
-}, [gnssData.connected]);
+
+      const elapsed = Math.floor(
+        (
+          Date.now() -
+          new Date(
+            gnssData.timestamp
+          ).getTime()
+        ) / 1000
+      );
+
+
+      setSecondsAgo(elapsed);
+
+    }, 1000);
+
+
+    return () =>
+      clearInterval(interval);
+
+  }, [
+    gnssData.connected,
+    gnssData.timestamp,
+  ]);
 
 
   // ======================================================
@@ -215,10 +234,7 @@ function StatsPanel({
 
 
           if (match) {
-
-            filename =
-              match[1];
-
+            filename = match[1];
           }
 
         }
@@ -238,36 +254,26 @@ function StatsPanel({
           document.createElement("a");
 
 
-        link.href =
-          url;
+        link.href = url;
 
-        link.download =
-          filename;
+        link.download = filename;
 
 
-        document.body.appendChild(
-          link
-        );
+        document.body.appendChild(link);
 
         link.click();
 
-        document.body.removeChild(
-          link
-        );
+        document.body.removeChild(link);
 
 
         // Clean up
 
-        window.URL.revokeObjectURL(
-          url
-        );
+        window.URL.revokeObjectURL(url);
 
 
         // Stop map path recording
 
-        onRecordingChange(
-          false
-        );
+        onRecordingChange(false);
 
       }
       catch (err) {
@@ -296,13 +302,12 @@ function StatsPanel({
 
     try {
 
-      const response =
-        await fetch(
-          `${import.meta.env.VITE_BACKEND_URL}/api/record/start`,
-          {
-            method: "POST",
-          }
-        );
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/record/start`,
+        {
+          method: "POST",
+        }
+      );
 
 
       if (!response.ok) {
@@ -316,9 +321,7 @@ function StatsPanel({
 
       // Start a NEW map path
 
-      onRecordingChange(
-        true
-      );
+      onRecordingChange(true);
 
     }
     catch (err) {
@@ -356,26 +359,20 @@ function StatsPanel({
       return;
     }
 
-
     try {
 
-      const response =
-        await fetch(
-          `${import.meta.env.VITE_BACKEND_URL}/api/capture`,
-          {
-            method: "POST",
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/capture`,
+        {
+          method: "POST",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+          headers: {
+            "Content-Type": "application/json",
+          },
 
-            body:
-              JSON.stringify(
-                gnssData
-              ),
-          }
-        );
+          body: JSON.stringify(gnssData),
+        }
+      );
 
 
       if (!response.ok) {
@@ -392,14 +389,11 @@ function StatsPanel({
             errorData.message ||
             message;
 
-        }
-        catch {
+        } catch {
           // Response wasn't JSON
         }
 
-        throw new Error(
-          message
-        );
+        throw new Error(message);
       }
 
 
@@ -428,14 +422,9 @@ function StatsPanel({
             /filename="([^"]+)"/
           );
 
-
         if (match) {
-
-          filename =
-            match[1];
-
+          filename = match[1];
         }
-
       }
 
 
@@ -452,30 +441,21 @@ function StatsPanel({
       const link =
         document.createElement("a");
 
+      link.href = url;
 
-      link.href =
-        url;
-
-      link.download =
-        filename;
+      link.download = filename;
 
 
-      document.body.appendChild(
-        link
-      );
+      document.body.appendChild(link);
 
       link.click();
 
-      document.body.removeChild(
-        link
-      );
+      document.body.removeChild(link);
 
 
       // Clean up
 
-      window.URL.revokeObjectURL(
-        url
-      );
+      window.URL.revokeObjectURL(url);
 
 
       console.log(
@@ -491,7 +471,6 @@ function StatsPanel({
         err
       );
 
-
       alert(
         err.message ||
         "Failed to capture GNSS sample."
@@ -506,35 +485,21 @@ function StatsPanel({
 
   const hours = String(
     Math.floor(
-      recordStatus.elapsed /
-      3600
+      recordStatus.elapsed / 3600
     )
-  ).padStart(
-    2,
-    "0"
-  );
+  ).padStart(2, "0");
 
 
   const minutes = String(
     Math.floor(
-      (
-        recordStatus.elapsed %
-        3600
-      ) / 60
+      (recordStatus.elapsed % 3600) / 60
     )
-  ).padStart(
-    2,
-    "0"
-  );
+  ).padStart(2, "0");
 
 
   const seconds = String(
-    recordStatus.elapsed %
-    60
-  ).padStart(
-    2,
-    "0"
-  );
+    recordStatus.elapsed % 60
+  ).padStart(2, "0");
 
 
   // ======================================================
@@ -644,9 +609,7 @@ function StatsPanel({
             >
 
               {secondsAgo} second
-              {secondsAgo !== 1
-                ? "s"
-                : ""}
+              {secondsAgo !== 1 ? "s" : ""}
               {" "}ago
 
             </div>
@@ -659,9 +622,7 @@ function StatsPanel({
         {/* Record Button */}
 
         <div
-          onClick={
-            handleRecording
-          }
+          onClick={handleRecording}
           style={{
             marginTop: "14px",
             padding: "12px",
@@ -689,12 +650,10 @@ function StatsPanel({
         </div>
 
 
-        {/* Capture Button */}
+        {/* Capture */}
 
         <div
-          onClick={
-            handleCapture
-          }
+          onClick={handleCapture}
           style={{
             marginTop: "10px",
             padding: "12px",
@@ -709,13 +668,10 @@ function StatsPanel({
             background: "#f3f4f6",
             color: "#2563eb",
 
-            border:
-              "1px solid #dbe3f0",
+            border: "1px solid #dbe3f0",
           }}
         >
-
           📷 Capture
-
         </div>
 
 
@@ -744,9 +700,7 @@ function StatsPanel({
               }}
             >
 
-              {hours}:
-              {minutes}:
-              {seconds}
+              {hours}:{minutes}:{seconds}
 
             </div>
 
@@ -940,7 +894,9 @@ function StatsPanel({
       }}
     >
 
-      {/* Mobile Header */}
+      {/* ==================================================
+          Mobile Header
+      ================================================== */}
 
       <div
         className="mobile-stats-header"
@@ -1004,18 +960,20 @@ function StatsPanel({
       </div>
 
 
-      {/* Mobile Expanded Content */}
+      {/* ==================================================
+          Mobile Expanded Content
+      ================================================== */}
 
       {mobileExpanded && (
 
         <>
 
-          {/* Record Button */}
+          {/* ----------------------------------------------
+              Record Button
+          ---------------------------------------------- */}
 
           <div
-            onClick={
-              handleRecording
-            }
+            onClick={handleRecording}
             style={{
               marginTop: "16px",
               padding: "11px",
@@ -1044,9 +1002,7 @@ function StatsPanel({
           {/* Capture Button */}
 
           <div
-            onClick={
-              handleCapture
-            }
+            onClick={handleCapture}
             style={{
               marginTop: "10px",
               padding: "11px",
@@ -1059,17 +1015,16 @@ function StatsPanel({
               background: "#f3f4f6",
               color: "#2563eb",
 
-              border:
-                "1px solid #dbe3f0",
+              border: "1px solid #dbe3f0",
             }}
           >
-
             📷 Capture
-
           </div>
 
 
-          {/* Recording Status */}
+          {/* ----------------------------------------------
+              Recording Status
+          ---------------------------------------------- */}
 
           {recordStatus.recording && (
 
@@ -1094,9 +1049,7 @@ function StatsPanel({
                 }}
               >
 
-                {hours}:
-                {minutes}:
-                {seconds}
+                {hours}:{minutes}:{seconds}
 
               </div>
 
@@ -1112,7 +1065,9 @@ function StatsPanel({
           )}
 
 
-          {/* Latitude */}
+          {/* ----------------------------------------------
+              Latitude
+          ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1134,7 +1089,9 @@ function StatsPanel({
           </div>
 
 
-          {/* Longitude */}
+          {/* ----------------------------------------------
+              Longitude
+          ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1156,7 +1113,9 @@ function StatsPanel({
           </div>
 
 
-          {/* Accuracy */}
+          {/* ----------------------------------------------
+              Accuracy
+          ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1179,7 +1138,33 @@ function StatsPanel({
           </div>
 
 
-          {/* Show More */}
+          {/* ----------------------------------------------
+              FIX TYPE - MOVED HERE
+          ---------------------------------------------- */}
+
+          <div className="info-row">
+
+            <div className="label">
+
+              <MdGpsFixed />
+
+              Fix Type
+
+            </div>
+
+
+            <span className="status">
+
+              {gnssData.fixType ?? "--"}
+
+            </span>
+
+          </div>
+
+
+          {/* ----------------------------------------------
+              Show More
+          ---------------------------------------------- */}
 
           <div
             onClick={() =>
@@ -1205,7 +1190,16 @@ function StatsPanel({
           </div>
 
 
-          {/* Remaining Information */}
+          {/* ----------------------------------------------
+              Remaining Information
+              ----------------------------------------------
+
+              Only these three are hidden initially:
+              Satellites
+              HDOP
+              Time
+
+          ---------------------------------------------- */}
 
           {mobileShowMore && (
 
@@ -1255,28 +1249,6 @@ function StatsPanel({
               </div>
 
 
-              {/* Fix Type */}
-
-              <div className="info-row">
-
-                <div className="label">
-
-                  <MdGpsFixed />
-
-                  Fix Type
-
-                </div>
-
-
-                <span className="status">
-
-                  {gnssData.fixType ?? "--"}
-
-                </span>
-
-              </div>
-
-
               {/* Time */}
 
               <div className="info-row">
@@ -1297,32 +1269,6 @@ function StatsPanel({
                 </span>
 
               </div>
-
-
-              {/* Last update */}
-
-              {!gnssData.connected && (
-
-                <div
-                  style={{
-                    marginTop: "14px",
-                    textAlign: "center",
-                    color: "#666",
-                    fontSize: "13px",
-                  }}
-                >
-
-                  Last update{" "}
-                  {secondsAgo}
-                  {" "}second
-                  {secondsAgo !== 1
-                    ? "s"
-                    : ""}
-                  {" "}ago
-
-                </div>
-
-              )}
 
             </>
 
