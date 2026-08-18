@@ -47,81 +47,24 @@ function StatsPanel({
 
   useEffect(() => {
 
-    if (!gnssData.timestamp) {
+  if (gnssData.connected) {
+    setSecondsAgo(0);
+    return;
+  }
 
-      setSecondsAgo(0);
+  // When disconnected state is first received,
+  // start the display at 5 seconds.
+  setSecondsAgo(5);
 
-      return;
-    }
+  const interval = setInterval(() => {
 
+    setSecondsAgo((prev) => prev + 1);
 
-    /*
-     * Calculate how many seconds have passed
-     * since the LAST GNSS sample.
-     *
-     * This runs regardless of connected/disconnected
-     * state, so there is no 5 -> 0 -> 1 jump.
-     */
-    const updateSecondsAgo = () => {
+  }, 1000);
 
-      const timestamp =
-        new Date(
-          gnssData.timestamp
-        ).getTime();
+  return () => clearInterval(interval);
 
-
-      if (
-        Number.isNaN(timestamp)
-      ) {
-
-        setSecondsAgo(0);
-
-        return;
-      }
-
-
-      const elapsed =
-        Math.floor(
-          (
-            Date.now() -
-            timestamp
-          ) / 1000
-        );
-
-
-      setSecondsAgo(
-        Math.max(
-          0,
-          elapsed
-        )
-      );
-    };
-
-
-    /*
-     * Calculate immediately.
-     */
-    updateSecondsAgo();
-
-
-    /*
-     * Continue updating every second.
-     */
-    const interval =
-      setInterval(
-        updateSecondsAgo,
-        1000
-      );
-
-
-    return () =>
-      clearInterval(
-        interval
-      );
-
-  }, [
-    gnssData.timestamp,
-  ]);
+}, [gnssData.connected]);
 
 
   // ======================================================
