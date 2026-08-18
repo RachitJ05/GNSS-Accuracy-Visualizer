@@ -163,6 +163,141 @@ function StatsPanel({
 
 
   // ======================================================
+  // XLSX Download / Save Helper
+  // ======================================================
+
+  async function downloadXlsx(
+    blob,
+    filename
+  ) {
+
+    /*
+     * MOBILE
+     *
+     * Use the native browser / Android share sheet
+     * when file sharing is supported.
+     *
+     * This avoids relying only on:
+     *
+     * blob URL + <a>.click()
+     *
+     * which can fail on mobile browsers.
+     */
+
+    if (
+      isMobile &&
+      navigator.share &&
+      navigator.canShare
+    ) {
+
+      try {
+
+        const file =
+          new File(
+            [blob],
+            filename,
+            {
+              type:
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }
+          );
+
+
+        if (
+          navigator.canShare({
+            files: [file],
+          })
+        ) {
+
+          await navigator.share({
+            title: filename,
+            files: [file],
+          });
+
+          return true;
+        }
+
+      }
+      catch (err) {
+
+        /*
+         * Closing the share sheet is not an error.
+         */
+
+        if (
+          err?.name ===
+          "AbortError"
+        ) {
+
+          return false;
+        }
+
+
+        console.error(
+          "Mobile file share error:",
+          err
+        );
+      }
+    }
+
+
+    /*
+     * DESKTOP / FALLBACK
+     *
+     * Keep the normal browser download mechanism.
+     */
+
+    const url =
+      window.URL.createObjectURL(
+        blob
+      );
+
+
+    const link =
+      document.createElement(
+        "a"
+      );
+
+
+    link.href =
+      url;
+
+    link.download =
+      filename;
+
+
+    document.body.appendChild(
+      link
+    );
+
+
+    link.click();
+
+
+    document.body.removeChild(
+      link
+    );
+
+
+    /*
+     * Delay cleanup slightly so browsers have
+     * time to process the download.
+     */
+
+    setTimeout(() => {
+
+      window.URL.revokeObjectURL(
+        url
+      );
+
+    }, 1000);
+
+
+    return true;
+  }
+
+
+  // ======================================================
   // Start / Stop Recording
   // ======================================================
 
@@ -203,17 +338,22 @@ function StatsPanel({
             // Response wasn't JSON
           }
 
+
           throw new Error(message);
         }
 
 
+        // ==============================================
         // Get XLSX file
+        // ==============================================
 
         const blob =
           await response.blob();
 
 
+        // ==============================================
         // Get filename from backend
+        // ==============================================
 
         const contentDisposition =
           response.headers.get(
@@ -234,44 +374,28 @@ function StatsPanel({
 
 
           if (match) {
-            filename = match[1];
+
+            filename =
+              match[1];
+
           }
 
         }
 
 
-        // Create download URL
+        // ==============================================
+        // Download / save XLSX
+        // ==============================================
 
-        const url =
-          window.URL.createObjectURL(
-            blob
-          );
-
-
-        // Create download link
-
-        const link =
-          document.createElement("a");
+        await downloadXlsx(
+          blob,
+          filename
+        );
 
 
-        link.href = url;
-
-        link.download = filename;
-
-
-        document.body.appendChild(link);
-
-        link.click();
-
-        document.body.removeChild(link);
-
-
-        // Clean up
-
-        window.URL.revokeObjectURL(url);
-
-
+        // ==============================================
         // Stop map path recording
+        // ==============================================
 
         onRecordingChange(false);
 
@@ -359,6 +483,7 @@ function StatsPanel({
       return;
     }
 
+
     try {
 
       const response = await fetch(
@@ -370,7 +495,9 @@ function StatsPanel({
             "Content-Type": "application/json",
           },
 
-          body: JSON.stringify(gnssData),
+          body: JSON.stringify(
+            gnssData
+          ),
         }
       );
 
@@ -389,21 +516,27 @@ function StatsPanel({
             errorData.message ||
             message;
 
-        } catch {
+        }
+        catch {
           // Response wasn't JSON
         }
+
 
         throw new Error(message);
       }
 
 
+      // ==============================================
       // Get XLSX file
+      // ==============================================
 
       const blob =
         await response.blob();
 
 
+      // ==============================================
       // Get filename sent by backend
+      // ==============================================
 
       const contentDisposition =
         response.headers.get(
@@ -422,40 +555,25 @@ function StatsPanel({
             /filename="([^"]+)"/
           );
 
+
         if (match) {
-          filename = match[1];
+
+          filename =
+            match[1];
+
         }
+
       }
 
 
-      // Create temporary download URL
+      // ==============================================
+      // Download / save XLSX
+      // ==============================================
 
-      const url =
-        window.URL.createObjectURL(
-          blob
-        );
-
-
-      // Create download link
-
-      const link =
-        document.createElement("a");
-
-      link.href = url;
-
-      link.download = filename;
-
-
-      document.body.appendChild(link);
-
-      link.click();
-
-      document.body.removeChild(link);
-
-
-      // Clean up
-
-      window.URL.revokeObjectURL(url);
+      await downloadXlsx(
+        blob,
+        filename
+      );
 
 
       console.log(
@@ -471,10 +589,12 @@ function StatsPanel({
         err
       );
 
+
       alert(
         err.message ||
         "Failed to capture GNSS sample."
       );
+
     }
   }
 
@@ -671,7 +791,9 @@ function StatsPanel({
             border: "1px solid #dbe3f0",
           }}
         >
+
           📷 Capture
+
         </div>
 
 
@@ -962,7 +1084,7 @@ function StatsPanel({
 
       {/* ==================================================
           Mobile Expanded Content
-      ================================================== */}
+          ================================================== */}
 
       {mobileExpanded && (
 
@@ -970,7 +1092,7 @@ function StatsPanel({
 
           {/* ----------------------------------------------
               Record Button
-          ---------------------------------------------- */}
+              ---------------------------------------------- */}
 
           <div
             onClick={handleRecording}
@@ -1018,13 +1140,15 @@ function StatsPanel({
               border: "1px solid #dbe3f0",
             }}
           >
+
             📷 Capture
+
           </div>
 
 
           {/* ----------------------------------------------
               Recording Status
-          ---------------------------------------------- */}
+              ---------------------------------------------- */}
 
           {recordStatus.recording && (
 
@@ -1067,7 +1191,7 @@ function StatsPanel({
 
           {/* ----------------------------------------------
               Latitude
-          ---------------------------------------------- */}
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1091,7 +1215,7 @@ function StatsPanel({
 
           {/* ----------------------------------------------
               Longitude
-          ---------------------------------------------- */}
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1115,7 +1239,7 @@ function StatsPanel({
 
           {/* ----------------------------------------------
               Accuracy
-          ---------------------------------------------- */}
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1140,7 +1264,7 @@ function StatsPanel({
 
           {/* ----------------------------------------------
               FIX TYPE - MOVED HERE
-          ---------------------------------------------- */}
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1164,7 +1288,7 @@ function StatsPanel({
 
           {/* ----------------------------------------------
               Show More
-          ---------------------------------------------- */}
+              ---------------------------------------------- */}
 
           <div
             onClick={() =>
@@ -1192,14 +1316,12 @@ function StatsPanel({
 
           {/* ----------------------------------------------
               Remaining Information
-              ----------------------------------------------
 
-              Only these three are hidden initially:
+              Hidden initially:
               Satellites
               HDOP
               Time
-
-          ---------------------------------------------- */}
+              ---------------------------------------------- */}
 
           {mobileShowMore && (
 
