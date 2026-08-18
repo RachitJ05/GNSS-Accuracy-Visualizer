@@ -47,41 +47,79 @@ function StatsPanel({
 
   useEffect(() => {
 
-    if (gnssData.connected) {
+    if (!gnssData.timestamp) {
 
-      setSecondsAgo(5);
+      setSecondsAgo(0);
 
       return;
     }
 
 
-    const interval = setInterval(() => {
+    /*
+     * Calculate how many seconds have passed
+     * since the LAST GNSS sample.
+     *
+     * This runs regardless of connected/disconnected
+     * state, so there is no 5 -> 0 -> 1 jump.
+     */
+    const updateSecondsAgo = () => {
 
-      if (!gnssData.timestamp) {
+      const timestamp =
+        new Date(
+          gnssData.timestamp
+        ).getTime();
+
+
+      if (
+        Number.isNaN(timestamp)
+      ) {
+
+        setSecondsAgo(0);
+
         return;
       }
 
 
-      const elapsed = Math.floor(
-        (
-          Date.now() -
-          new Date(
-            gnssData.timestamp
-          ).getTime()
-        ) / 1000
+      const elapsed =
+        Math.floor(
+          (
+            Date.now() -
+            timestamp
+          ) / 1000
+        );
+
+
+      setSecondsAgo(
+        Math.max(
+          0,
+          elapsed
+        )
+      );
+    };
+
+
+    /*
+     * Calculate immediately.
+     */
+    updateSecondsAgo();
+
+
+    /*
+     * Continue updating every second.
+     */
+    const interval =
+      setInterval(
+        updateSecondsAgo,
+        1000
       );
 
 
-      setSecondsAgo(elapsed);
-
-    }, 1000);
-
-
     return () =>
-      clearInterval(interval);
+      clearInterval(
+        interval
+      );
 
   }, [
-    gnssData.connected,
     gnssData.timestamp,
   ]);
 
@@ -234,7 +272,10 @@ function StatsPanel({
 
 
           if (match) {
-            filename = match[1];
+
+            filename =
+              match[1];
+
           }
 
         }
@@ -254,26 +295,36 @@ function StatsPanel({
           document.createElement("a");
 
 
-        link.href = url;
+        link.href =
+          url;
 
-        link.download = filename;
+        link.download =
+          filename;
 
 
-        document.body.appendChild(link);
+        document.body.appendChild(
+          link
+        );
 
         link.click();
 
-        document.body.removeChild(link);
+        document.body.removeChild(
+          link
+        );
 
 
         // Clean up
 
-        window.URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(
+          url
+        );
 
 
         // Stop map path recording
 
-        onRecordingChange(false);
+        onRecordingChange(
+          false
+        );
 
       }
       catch (err) {
@@ -302,12 +353,13 @@ function StatsPanel({
 
     try {
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/record/start`,
-        {
-          method: "POST",
-        }
-      );
+      const response =
+        await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/record/start`,
+          {
+            method: "POST",
+          }
+        );
 
 
       if (!response.ok) {
@@ -321,7 +373,9 @@ function StatsPanel({
 
       // Start a NEW map path
 
-      onRecordingChange(true);
+      onRecordingChange(
+        true
+      );
 
     }
     catch (err) {
@@ -340,6 +394,11 @@ function StatsPanel({
     }
   }
 
+
+  // ======================================================
+  // Capture
+  // ======================================================
+
   async function handleCapture() {
 
     if (
@@ -354,20 +413,26 @@ function StatsPanel({
       return;
     }
 
+
     try {
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/capture`,
-        {
-          method: "POST",
+      const response =
+        await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/capture`,
+          {
+            method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          body: JSON.stringify(gnssData),
-        }
-      );
+            body:
+              JSON.stringify(
+                gnssData
+              ),
+          }
+        );
 
 
       if (!response.ok) {
@@ -384,20 +449,25 @@ function StatsPanel({
             errorData.message ||
             message;
 
-        } catch {
+        }
+        catch {
           // Response wasn't JSON
         }
 
-        throw new Error(message);
+        throw new Error(
+          message
+        );
       }
 
 
       // Get XLSX file
+
       const blob =
         await response.blob();
 
 
       // Get filename sent by backend
+
       const contentDisposition =
         response.headers.get(
           "Content-Disposition"
@@ -415,35 +485,54 @@ function StatsPanel({
             /filename="([^"]+)"/
           );
 
+
         if (match) {
-          filename = match[1];
+
+          filename =
+            match[1];
+
         }
+
       }
 
 
       // Create temporary download URL
+
       const url =
-        window.URL.createObjectURL(blob);
+        window.URL.createObjectURL(
+          blob
+        );
 
 
       // Create download link
+
       const link =
         document.createElement("a");
 
-      link.href = url;
 
-      link.download = filename;
+      link.href =
+        url;
+
+      link.download =
+        filename;
 
 
-      document.body.appendChild(link);
+      document.body.appendChild(
+        link
+      );
 
       link.click();
 
-      document.body.removeChild(link);
+      document.body.removeChild(
+        link
+      );
 
 
       // Clean up
-      window.URL.revokeObjectURL(url);
+
+      window.URL.revokeObjectURL(
+        url
+      );
 
 
       console.log(
@@ -459,6 +548,7 @@ function StatsPanel({
         err
       );
 
+
       alert(
         err.message ||
         "Failed to capture GNSS sample."
@@ -473,21 +563,35 @@ function StatsPanel({
 
   const hours = String(
     Math.floor(
-      recordStatus.elapsed / 3600
+      recordStatus.elapsed /
+      3600
     )
-  ).padStart(2, "0");
+  ).padStart(
+    2,
+    "0"
+  );
 
 
   const minutes = String(
     Math.floor(
-      (recordStatus.elapsed % 3600) / 60
+      (
+        recordStatus.elapsed %
+        3600
+      ) / 60
     )
-  ).padStart(2, "0");
+  ).padStart(
+    2,
+    "0"
+  );
 
 
   const seconds = String(
-    recordStatus.elapsed % 60
-  ).padStart(2, "0");
+    recordStatus.elapsed %
+    60
+  ).padStart(
+    2,
+    "0"
+  );
 
 
   // ======================================================
@@ -597,7 +701,9 @@ function StatsPanel({
             >
 
               {secondsAgo} second
-              {secondsAgo !== 1 ? "s" : ""}
+              {secondsAgo !== 1
+                ? "s"
+                : ""}
               {" "}ago
 
             </div>
@@ -610,7 +716,9 @@ function StatsPanel({
         {/* Record Button */}
 
         <div
-          onClick={handleRecording}
+          onClick={
+            handleRecording
+          }
           style={{
             marginTop: "14px",
             padding: "12px",
@@ -638,8 +746,12 @@ function StatsPanel({
         </div>
 
 
+        {/* Capture Button */}
+
         <div
-          onClick={handleCapture}
+          onClick={
+            handleCapture
+          }
           style={{
             marginTop: "10px",
             padding: "12px",
@@ -654,10 +766,13 @@ function StatsPanel({
             background: "#f3f4f6",
             color: "#2563eb",
 
-            border: "1px solid #dbe3f0",
+            border:
+              "1px solid #dbe3f0",
           }}
         >
+
           📷 Capture
+
         </div>
 
 
@@ -686,7 +801,9 @@ function StatsPanel({
               }}
             >
 
-              {hours}:{minutes}:{seconds}
+              {hours}:
+              {minutes}:
+              {seconds}
 
             </div>
 
@@ -880,9 +997,7 @@ function StatsPanel({
       }}
     >
 
-      {/* ==================================================
-          Mobile Header
-      ================================================== */}
+      {/* Mobile Header */}
 
       <div
         className="mobile-stats-header"
@@ -946,20 +1061,18 @@ function StatsPanel({
       </div>
 
 
-      {/* ==================================================
-          Mobile Expanded Content
-      ================================================== */}
+      {/* Mobile Expanded Content */}
 
       {mobileExpanded && (
 
         <>
 
-          {/* ----------------------------------------------
-              Record Button
-          ---------------------------------------------- */}
+          {/* Record Button */}
 
           <div
-            onClick={handleRecording}
+            onClick={
+              handleRecording
+            }
             style={{
               marginTop: "16px",
               padding: "11px",
@@ -988,7 +1101,9 @@ function StatsPanel({
           {/* Capture Button */}
 
           <div
-            onClick={handleCapture}
+            onClick={
+              handleCapture
+            }
             style={{
               marginTop: "10px",
               padding: "11px",
@@ -1001,16 +1116,17 @@ function StatsPanel({
               background: "#f3f4f6",
               color: "#2563eb",
 
-              border: "1px solid #dbe3f0",
+              border:
+                "1px solid #dbe3f0",
             }}
           >
+
             📷 Capture
+
           </div>
 
 
-          {/* ----------------------------------------------
-              Recording Status
-          ---------------------------------------------- */}
+          {/* Recording Status */}
 
           {recordStatus.recording && (
 
@@ -1035,7 +1151,9 @@ function StatsPanel({
                 }}
               >
 
-                {hours}:{minutes}:{seconds}
+                {hours}:
+                {minutes}:
+                {seconds}
 
               </div>
 
@@ -1051,9 +1169,7 @@ function StatsPanel({
           )}
 
 
-          {/* ----------------------------------------------
-              Latitude
-          ---------------------------------------------- */}
+          {/* Latitude */}
 
           <div className="info-row">
 
@@ -1075,9 +1191,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Longitude
-          ---------------------------------------------- */}
+          {/* Longitude */}
 
           <div className="info-row">
 
@@ -1099,9 +1213,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Accuracy
-          ---------------------------------------------- */}
+          {/* Accuracy */}
 
           <div className="info-row">
 
@@ -1124,9 +1236,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Show More
-          ---------------------------------------------- */}
+          {/* Show More */}
 
           <div
             onClick={() =>
@@ -1152,9 +1262,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Remaining Information
-          ---------------------------------------------- */}
+          {/* Remaining Information */}
 
           {mobileShowMore && (
 
@@ -1262,7 +1370,12 @@ function StatsPanel({
                 >
 
                   Last update{" "}
-                  {secondsAgo}s ago
+                  {secondsAgo}
+                  {" "}second
+                  {secondsAgo !== 1
+                    ? "s"
+                    : ""}
+                  {" "}ago
 
                 </div>
 
