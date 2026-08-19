@@ -222,6 +222,8 @@ border-radius:18px;
 
 padding:24px;
 
+padding-bottom:0px;
+
 box-shadow:
 0 10px 30px rgba(0,0,0,.12);
 
@@ -297,7 +299,7 @@ justify-content:space-between;
 
 align-items:center;
 
-padding:14px 0;
+padding:8.5px 0;
 
 border-bottom:1px solid #edf0f4;
 

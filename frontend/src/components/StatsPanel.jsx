@@ -176,12 +176,6 @@ function StatsPanel({
      *
      * Use the native browser / Android share sheet
      * when file sharing is supported.
-     *
-     * This avoids relying only on:
-     *
-     * blob URL + <a>.click()
-     *
-     * which can fail on mobile browsers.
      */
 
     if (
@@ -220,10 +214,6 @@ function StatsPanel({
       }
       catch (err) {
 
-        /*
-         * Closing the share sheet is not an error.
-         */
-
         if (
           err?.name ===
           "AbortError"
@@ -243,8 +233,6 @@ function StatsPanel({
 
     /*
      * DESKTOP / FALLBACK
-     *
-     * Keep the normal browser download mechanism.
      */
 
     const url =
@@ -278,11 +266,6 @@ function StatsPanel({
       link
     );
 
-
-    /*
-     * Delay cleanup slightly so browsers have
-     * time to process the download.
-     */
 
     setTimeout(() => {
 
@@ -352,7 +335,7 @@ function StatsPanel({
 
 
         // ==============================================
-        // Get filename from backend
+        // Get filename
         // ==============================================
 
         const contentDisposition =
@@ -535,7 +518,7 @@ function StatsPanel({
 
 
       // ==============================================
-      // Get filename sent by backend
+      // Get filename
       // ==============================================
 
       const contentDisposition =
@@ -561,7 +544,7 @@ function StatsPanel({
           filename =
             match[1];
 
-        }
+          }
 
       }
 
@@ -882,7 +865,7 @@ function StatsPanel({
         </div>
 
 
-        {/* Accuracy */}
+        {/* Horizontal Accuracy */}
 
         <div className="info-row">
 
@@ -890,14 +873,91 @@ function StatsPanel({
 
             <FaBullseye />
 
-            Accuracy
+            Horizontal Accuracy
 
           </div>
 
 
           <span className="value">
 
-            {gnssData.accuracy?.toFixed(2) ?? "--"}
+            {gnssData.accuracy != null
+              ? gnssData.accuracy.toFixed(2)
+              : "--"}
+            {" "}m
+
+          </span>
+
+        </div>
+
+
+        {/* North Error */}
+
+        <div className="info-row">
+
+          <div className="label">
+
+            <MdGpsFixed />
+
+            North Error
+
+          </div>
+
+
+          <span className="value">
+
+            {gnssData.northError != null
+              ? gnssData.northError.toFixed(2)
+              : "--"}
+            {" "}m
+
+          </span>
+
+        </div>
+
+
+        {/* East Error */}
+
+        <div className="info-row">
+
+          <div className="label">
+
+            <MdGpsFixed />
+
+            East Error
+
+          </div>
+
+
+          <span className="value">
+
+            {gnssData.eastError != null
+              ? gnssData.eastError.toFixed(2)
+              : "--"}
+            {" "}m
+
+          </span>
+
+        </div>
+
+
+        {/* Vertical Error */}
+
+        <div className="info-row">
+
+          <div className="label">
+
+            <MdGpsFixed />
+
+            Vertical Error
+
+          </div>
+
+
+          <span className="value">
+
+            {gnssData.verticalError != null
+              ? gnssData.verticalError.toFixed(2)
+              : "--"}
             {" "}m
 
           </span>
@@ -1084,15 +1144,13 @@ function StatsPanel({
 
       {/* ==================================================
           Mobile Expanded Content
-          ================================================== */}
+      ================================================== */}
 
       {mobileExpanded && (
 
         <>
 
-          {/* ----------------------------------------------
-              Record Button
-              ---------------------------------------------- */}
+          {/* Record Button */}
 
           <div
             onClick={handleRecording}
@@ -1146,9 +1204,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Recording Status
-              ---------------------------------------------- */}
+          {/* Recording Status */}
 
           {recordStatus.recording && (
 
@@ -1189,9 +1245,7 @@ function StatsPanel({
           )}
 
 
-          {/* ----------------------------------------------
-              Latitude
-              ---------------------------------------------- */}
+          {/* Latitude */}
 
           <div className="info-row">
 
@@ -1213,9 +1267,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Longitude
-              ---------------------------------------------- */}
+          {/* Longitude */}
 
           <div className="info-row">
 
@@ -1237,9 +1289,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Accuracy
-              ---------------------------------------------- */}
+          {/* Horizontal Accuracy */}
 
           <div className="info-row">
 
@@ -1254,7 +1304,9 @@ function StatsPanel({
 
             <span className="value">
 
-              {gnssData.accuracy?.toFixed(2) ?? "--"}
+              {gnssData.accuracy != null
+                ? gnssData.accuracy.toFixed(2)
+                : "--"}
               {" "}m
 
             </span>
@@ -1262,9 +1314,82 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              FIX TYPE - MOVED HERE
-              ---------------------------------------------- */}
+          {/* North Error */}
+
+          <div className="info-row">
+
+            <div className="label">
+
+              <MdGpsFixed />
+
+              North Error
+
+            </div>
+
+
+            <span className="value">
+
+              {gnssData.northError != null
+                ? gnssData.northError.toFixed(2)
+                : "--"}
+              {" "}m
+
+            </span>
+
+          </div>
+
+
+          {/* East Error */}
+
+          <div className="info-row">
+
+            <div className="label">
+
+              <MdGpsFixed />
+
+              East Error
+
+            </div>
+
+
+            <span className="value">
+
+              {gnssData.eastError != null
+                ? gnssData.eastError.toFixed(2)
+                : "--"}
+              {" "}m
+
+            </span>
+
+          </div>
+
+
+          {/* Vertical Error */}
+
+          <div className="info-row">
+
+            <div className="label">
+
+              <MdGpsFixed />
+
+              Vertical Error
+
+            </div>
+
+
+            <span className="value">
+
+              {gnssData.verticalError != null
+                ? gnssData.verticalError.toFixed(2)
+                : "--"}
+              {" "}m
+
+            </span>
+
+          </div>
+
+
+          {/* Fix Type */}
 
           <div className="info-row">
 
@@ -1286,9 +1411,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Show More
-              ---------------------------------------------- */}
+          {/* Show More */}
 
           <div
             onClick={() =>
@@ -1314,14 +1437,7 @@ function StatsPanel({
           </div>
 
 
-          {/* ----------------------------------------------
-              Remaining Information
-
-              Hidden initially:
-              Satellites
-              HDOP
-              Time
-              ---------------------------------------------- */}
+          {/* Remaining Information */}
 
           {mobileShowMore && (
 

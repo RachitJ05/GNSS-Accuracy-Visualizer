@@ -1,36 +1,41 @@
 export default {
-    status:"Waiting",
+    status: "Disconnected",
 
-    lastSeen:null,
+    lastSeen: null,
 
-    latitude:null,
+    latitude: null,
 
-    longitude:null,
+    longitude: null,
 
-    altitude:null,
+    altitude: null,
 
-    speed:null,
+    speed: null,
 
-    heading:null,
+    heading: null,
 
-    accuracy:null,
+    // Horizontal / 2D accuracy
+    accuracy: null,
 
-    satellites:0,
+    // PQTMEPE individual errors
+    northError: null,
 
-    hdop:null,
+    eastError: null,
 
-    vdop:null,
+    verticalError: null,
 
-    fixType:"No Fix",
+    satellites: 0,
 
-    mode:"standard",
+    hdop: null,
 
-    status:"Disconnected",
+    vdop: null,
 
-    correctionStatus:"None",
+    fixType: "No Fix",
 
-    connected:false,
+    mode: "standard",
 
-    timestamp:null
+    correctionStatus: "None",
 
+    connected: false,
+
+    timestamp: null
 };
