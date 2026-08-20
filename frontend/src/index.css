@@ -299,7 +299,7 @@ justify-content:space-between;
 
 align-items:center;
 
-padding:8.5px 0;
+padding:5px 0;
 
 border-bottom:1px solid #edf0f4;
 
@@ -505,6 +505,16 @@ border-radius: 0;
 
   }
 
+  .stats-panel.mobile {
+    padding-bottom: 8px ;
+    padding-top: 8px;
+  }
+
+  .stats-panel.mobile .info-row:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 2px !important;
+  }
+
   .stats-title h3{
 
     font-size:18px;
@@ -539,7 +549,7 @@ border-radius: 0;
 
   .info-row{
 
-    padding:10px 0;
+    padding: 3px 0;
 
   }
 

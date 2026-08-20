@@ -17,15 +17,19 @@ function StatsPanel({
 
   const [secondsAgo, setSecondsAgo] = useState(0);
 
+
   const [isMobile, setIsMobile] = useState(
     window.innerWidth <= 768
   );
 
+
   const [mobileExpanded, setMobileExpanded] =
     useState(false);
 
+
   const [mobileShowMore, setMobileShowMore] =
     useState(false);
+
 
   const [recordStatus, setRecordStatus] = useState({
     recording: false,
@@ -250,6 +254,7 @@ function StatsPanel({
     link.href =
       url;
 
+
     link.download =
       filename;
 
@@ -307,10 +312,12 @@ function StatsPanel({
           let message =
             "Failed to stop recording.";
 
+
           try {
 
             const errorData =
               await response.json();
+
 
             message =
               errorData.message ||
@@ -335,7 +342,7 @@ function StatsPanel({
 
 
         // ==============================================
-        // Get filename
+        // Get filename from backend
         // ==============================================
 
         const contentDisposition =
@@ -426,8 +433,6 @@ function StatsPanel({
       }
 
 
-      // Start a NEW map path
-
       onRecordingChange(true);
 
     }
@@ -490,10 +495,12 @@ function StatsPanel({
         let message =
           "Failed to capture GNSS sample.";
 
+
         try {
 
           const errorData =
             await response.json();
+
 
           message =
             errorData.message ||
@@ -518,7 +525,7 @@ function StatsPanel({
 
 
       // ==============================================
-      // Get filename
+      // Get filename sent by backend
       // ==============================================
 
       const contentDisposition =
@@ -544,7 +551,7 @@ function StatsPanel({
           filename =
             match[1];
 
-          }
+        }
 
       }
 
@@ -865,6 +872,76 @@ function StatsPanel({
         </div>
 
 
+        {/* Delta North */}
+
+        <div className="info-row">
+
+          <div className="label">
+
+            <MdGpsFixed />
+
+            Delta North
+
+          </div>
+
+
+          <span className="value">
+
+            {gnssData.northError != null
+              ? `${gnssData.northError.toFixed(2)} m`
+              : "-- m"}
+
+          </span>
+
+        </div>
+
+
+        {/* Delta East */}
+
+        <div className="info-row">
+
+          <div className="label">
+
+            <MdGpsFixed />
+
+            Delta East
+
+          </div>
+
+
+          <span className="value">
+
+            {gnssData.eastError != null
+              ? `${gnssData.eastError.toFixed(2)} m`
+              : "-- m"}
+
+          </span>
+
+        </div>
+
+
+        {/* Fix Type */}
+
+        <div className="info-row">
+
+          <div className="label">
+
+            <MdGpsFixed />
+
+            Fix Type
+
+          </div>
+
+
+          <span className="status">
+
+            {gnssData.fixType ?? "--"}
+
+          </span>
+
+        </div>
+
+
         {/* Horizontal Accuracy */}
 
         <div className="info-row">
@@ -881,84 +958,8 @@ function StatsPanel({
           <span className="value">
 
             {gnssData.accuracy != null
-              ? gnssData.accuracy.toFixed(2)
-              : "--"}
-            {" "}m
-
-          </span>
-
-        </div>
-
-
-        {/* North Error */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <MdGpsFixed />
-
-            North Error
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.northError != null
-              ? gnssData.northError.toFixed(2)
-              : "--"}
-            {" "}m
-
-          </span>
-
-        </div>
-
-
-        {/* East Error */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <MdGpsFixed />
-
-            East Error
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.eastError != null
-              ? gnssData.eastError.toFixed(2)
-              : "--"}
-            {" "}m
-
-          </span>
-
-        </div>
-
-
-        {/* Vertical Error */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <MdGpsFixed />
-
-            Vertical Error
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.verticalError != null
-              ? gnssData.verticalError.toFixed(2)
-              : "--"}
-            {" "}m
+              ? `${gnssData.accuracy.toFixed(2)} m`
+              : "-- m"}
 
           </span>
 
@@ -1003,28 +1004,6 @@ function StatsPanel({
           <span className="value">
 
             {gnssData.hdop ?? "--"}
-
-          </span>
-
-        </div>
-
-
-        {/* Fix Type */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <MdGpsFixed />
-
-            Fix Type
-
-          </div>
-
-
-          <span className="status">
-
-            {gnssData.fixType ?? "--"}
 
           </span>
 
@@ -1150,7 +1129,9 @@ function StatsPanel({
 
         <>
 
-          {/* Record Button */}
+          {/* ----------------------------------------------
+              Record Button
+              ---------------------------------------------- */}
 
           <div
             onClick={handleRecording}
@@ -1204,7 +1185,9 @@ function StatsPanel({
           </div>
 
 
-          {/* Recording Status */}
+          {/* ----------------------------------------------
+              Recording Status
+              ---------------------------------------------- */}
 
           {recordStatus.recording && (
 
@@ -1245,7 +1228,9 @@ function StatsPanel({
           )}
 
 
-          {/* Latitude */}
+          {/* ----------------------------------------------
+              Latitude
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1267,7 +1252,9 @@ function StatsPanel({
           </div>
 
 
-          {/* Longitude */}
+          {/* ----------------------------------------------
+              Longitude
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1289,32 +1276,9 @@ function StatsPanel({
           </div>
 
 
-          {/* Horizontal Accuracy */}
-
-          <div className="info-row">
-
-            <div className="label">
-
-              <FaBullseye />
-
-              Accuracy
-
-            </div>
-
-
-            <span className="value">
-
-              {gnssData.accuracy != null
-                ? gnssData.accuracy.toFixed(2)
-                : "--"}
-              {" "}m
-
-            </span>
-
-          </div>
-
-
-          {/* North Error */}
+          {/* ----------------------------------------------
+              Delta North
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1322,7 +1286,7 @@ function StatsPanel({
 
               <MdGpsFixed />
 
-              North Error
+              Delta North
 
             </div>
 
@@ -1330,16 +1294,17 @@ function StatsPanel({
             <span className="value">
 
               {gnssData.northError != null
-                ? gnssData.northError.toFixed(2)
-                : "--"}
-              {" "}m
+                ? `${gnssData.northError.toFixed(2)} m`
+                : "-- m"}
 
             </span>
 
           </div>
 
 
-          {/* East Error */}
+          {/* ----------------------------------------------
+              Delta East
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1347,7 +1312,7 @@ function StatsPanel({
 
               <MdGpsFixed />
 
-              East Error
+              Delta East
 
             </div>
 
@@ -1355,41 +1320,17 @@ function StatsPanel({
             <span className="value">
 
               {gnssData.eastError != null
-                ? gnssData.eastError.toFixed(2)
-                : "--"}
-              {" "}m
+                ? `${gnssData.eastError.toFixed(2)} m`
+                : "-- m"}
 
             </span>
 
           </div>
 
 
-          {/* Vertical Error */}
-
-          <div className="info-row">
-
-            <div className="label">
-
-              <MdGpsFixed />
-
-              Vertical Error
-
-            </div>
-
-
-            <span className="value">
-
-              {gnssData.verticalError != null
-                ? gnssData.verticalError.toFixed(2)
-                : "--"}
-              {" "}m
-
-            </span>
-
-          </div>
-
-
-          {/* Fix Type */}
+          {/* ----------------------------------------------
+              Fix Type
+              ---------------------------------------------- */}
 
           <div className="info-row">
 
@@ -1411,7 +1352,9 @@ function StatsPanel({
           </div>
 
 
-          {/* Show More */}
+          {/* ----------------------------------------------
+              Show More
+              ---------------------------------------------- */}
 
           <div
             onClick={() =>
@@ -1420,8 +1363,9 @@ function StatsPanel({
               )
             }
             style={{
-              marginTop: "14px",
-              marginBottom: "6px",
+              padding: "0px",
+              marginTop: "1px",
+              marginBottom: "3px",
               textAlign: "center",
               color: "#2563eb",
               fontWeight: "600",
@@ -1437,11 +1381,37 @@ function StatsPanel({
           </div>
 
 
-          {/* Remaining Information */}
+          {/* ----------------------------------------------
+              Lower Information Section
+              ---------------------------------------------- */}
 
           {mobileShowMore && (
 
             <>
+
+              {/* Horizontal Accuracy */}
+
+              <div className="info-row">
+
+                <div className="label">
+
+                  <FaBullseye />
+
+                  Horizontal Accuracy
+
+                </div>
+
+
+                <span className="value">
+
+                  {gnssData.accuracy != null
+                    ? `${gnssData.accuracy.toFixed(2)} m`
+                    : "-- m"}
+
+                </span>
+
+              </div>
+
 
               {/* Satellites */}
 
