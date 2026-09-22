@@ -888,7 +888,7 @@ function StatsPanel({
           <span className="value">
 
             {gnssData.accuracy != null
-              ? `${gnssData.accuracy.toFixed(2)} m`
+              ? `${gnssData.accuracy.toFixed(3)} m`
               : "-- m"}
 
           </span>
@@ -1291,7 +1291,7 @@ function StatsPanel({
                 <span className="value">
 
                   {gnssData.accuracy != null
-                    ? `${gnssData.accuracy.toFixed(2)} m`
+                    ? `${gnssData.accuracy.toFixed(3)} m`
                     : "-- m"}
 
                 </span>
