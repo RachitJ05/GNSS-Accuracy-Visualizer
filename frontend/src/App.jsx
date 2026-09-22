@@ -96,7 +96,7 @@ function App() {
 
         // Do not overwrite the QLM/PDR StatsPanel with
         // Android packets when both streams are active.
-        setGnssData((current) => current ?? data);
+        setGnssData(data);
       } else {
         // ----------------------------------------------
         // QLM29H GNSS + Phone PDR stream
