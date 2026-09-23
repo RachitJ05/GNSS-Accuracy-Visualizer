@@ -794,8 +794,7 @@ function CameraOverlay() {
         style={{
           position: "fixed",
 
-          top:
-            "calc(env(safe-area-inset-top, 0px) + 4px)",
+          top: "4px",
 
           right: "10px",
 
