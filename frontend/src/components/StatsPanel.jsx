@@ -572,7 +572,7 @@ function StatsPanel({
             position: "fixed",
 
             top:
-              "calc(env(safe-area-inset-top, 0px) + 82px)",
+              "calc(env(safe-area-inset-top, 0px) + 65px)",
 
             left: "12px",
 
