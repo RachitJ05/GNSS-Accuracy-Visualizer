@@ -164,8 +164,10 @@ function App() {
 
       <StatsPanel
         gnssData={gnssData ?? primaryData}
+        qlmData={qlmData}
+        androidData={androidData}
         onRecordingChange={handleRecordingChange}
-      />
+      />  
 
     </div>
   );

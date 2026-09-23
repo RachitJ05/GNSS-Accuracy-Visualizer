@@ -1,35 +1,15 @@
 import { useEffect, useState } from "react";
-
-import {
-  FaLocationDot,
-  FaSatelliteDish,
-  FaBullseye,
-  FaClock,
-} from "react-icons/fa6";
-
-import { MdGpsFixed } from "react-icons/md";
-
+import CameraOverlay from "./CameraOverlay";
 
 function StatsPanel({
   gnssData,
+  qlmData,
+  androidData,
   onRecordingChange,
 }) {
-
-  const [secondsAgo, setSecondsAgo] = useState(0);
-
-
   const [isMobile, setIsMobile] = useState(
     window.innerWidth <= 768
   );
-
-
-  const [mobileExpanded, setMobileExpanded] =
-    useState(false);
-
-
-  const [mobileShowMore, setMobileShowMore] =
-    useState(false);
-
 
   const [recordStatus, setRecordStatus] = useState({
     recording: false,
@@ -37,176 +17,69 @@ function StatsPanel({
     samples: 0,
   });
 
-
-  const currentTime = gnssData.timestamp
-    ? new Date(
-        gnssData.timestamp
-      ).toLocaleTimeString()
-    : "--";
-
-
   // ======================================================
-  // Receiver disconnect timer
+  // RESPONSIVE
   // ======================================================
 
   useEffect(() => {
-
-    if (gnssData.connected) {
-
-      setSecondsAgo(5);
-
-      return;
-    }
-
-
-    const interval = setInterval(() => {
-
-      if (!gnssData.timestamp) {
-        return;
-      }
-
-
-      const elapsed = Math.floor(
-        (
-          Date.now() -
-          new Date(
-            gnssData.timestamp
-          ).getTime()
-        ) / 1000
-      );
-
-
-      setSecondsAgo(elapsed);
-
-    }, 1000);
-
-
-    return () =>
-      clearInterval(interval);
-
-  }, [
-    gnssData.connected,
-    gnssData.timestamp,
-  ]);
-
-
-  // ======================================================
-  // Recording status
-  // ======================================================
-
-  useEffect(() => {
-
-    const interval = setInterval(
-      async () => {
-
-        try {
-
-          const response = await fetch(
-            `${import.meta.env.VITE_BACKEND_URL}/api/record/status`
-          );
-
-
-          const data =
-            await response.json();
-
-
-          setRecordStatus(data);
-
-        }
-        catch (err) {
-
-          console.error(
-            "Recording status error:",
-            err
-          );
-
-        }
-
-      },
-      1000
-    );
-
-
-    return () =>
-      clearInterval(interval);
-
-  }, []);
-
-
-  // ======================================================
-  // Mobile detection
-  // ======================================================
-
-  useEffect(() => {
-
     function handleResize() {
-
-      setIsMobile(
-        window.innerWidth <= 768
-      );
-
+      setIsMobile(window.innerWidth <= 768);
     }
 
-
-    window.addEventListener(
-      "resize",
-      handleResize
-    );
-
+    window.addEventListener("resize", handleResize);
 
     return () => {
-
-      window.removeEventListener(
-        "resize",
-        handleResize
-      );
-
+      window.removeEventListener("resize", handleResize);
     };
-
   }, []);
 
+  // ======================================================
+  // RECORDING STATUS
+  // ======================================================
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/record/status`
+        );
+
+        const data = await response.json();
+
+        setRecordStatus(data);
+      } catch (err) {
+        console.error("Recording status error:", err);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // ======================================================
-  // XLSX Download / Save Helper
+  // DOWNLOAD XLSX
   // ======================================================
 
-  async function downloadXlsx(
-    blob,
-    filename
-  ) {
-
-    /*
-     * MOBILE
-     *
-     * Use the native browser / Android share sheet
-     * when file sharing is supported.
-     */
-
+  async function downloadXlsx(blob, filename) {
     if (
       isMobile &&
       navigator.share &&
       navigator.canShare
     ) {
-
       try {
-
-        const file =
-          new File(
-            [blob],
-            filename,
-            {
-              type:
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            }
-          );
-
+        const file = new File(
+          [blob],
+          filename,
+          {
+            type:
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          }
+        );
 
         if (
           navigator.canShare({
             files: [file],
           })
         ) {
-
           await navigator.share({
             title: filename,
             files: [file],
@@ -214,18 +87,10 @@ function StatsPanel({
 
           return true;
         }
-
-      }
-      catch (err) {
-
-        if (
-          err?.name ===
-          "AbortError"
-        ) {
-
+      } catch (err) {
+        if (err?.name === "AbortError") {
           return false;
         }
-
 
         console.error(
           "Mobile file share error:",
@@ -234,71 +99,37 @@ function StatsPanel({
       }
     }
 
+    const url = window.URL.createObjectURL(blob);
 
-    /*
-     * DESKTOP / FALLBACK
-     */
+    const link = document.createElement("a");
 
-    const url =
-      window.URL.createObjectURL(
-        blob
-      );
+    link.href = url;
+    link.download = filename;
 
-
-    const link =
-      document.createElement(
-        "a"
-      );
-
-
-    link.href =
-      url;
-
-
-    link.download =
-      filename;
-
-
-    document.body.appendChild(
-      link
-    );
-
+    document.body.appendChild(link);
 
     link.click();
 
-
-    document.body.removeChild(
-      link
-    );
-
+    document.body.removeChild(link);
 
     setTimeout(() => {
-
-      window.URL.revokeObjectURL(
-        url
-      );
-
+      window.URL.revokeObjectURL(url);
     }, 1000);
-
 
     return true;
   }
 
-
   // ======================================================
-  // Start / Stop Recording
+  // RECORDING
   // ======================================================
 
   async function handleRecording() {
-
-    // ==================================================
-    // STOP RECORDING
-    // ==================================================
+    // --------------------------------------------------
+    // STOP
+    // --------------------------------------------------
 
     if (recordStatus.recording) {
-
       try {
-
         const response = await fetch(
           `${import.meta.env.VITE_BACKEND_URL}/api/record/stop`,
           {
@@ -306,116 +137,71 @@ function StatsPanel({
           }
         );
 
-
         if (!response.ok) {
-
           let message =
             "Failed to stop recording.";
 
-
           try {
-
             const errorData =
               await response.json();
-
 
             message =
               errorData.message ||
               message;
-
+          } catch {
+            // Not JSON
           }
-          catch {
-            // Response wasn't JSON
-          }
-
 
           throw new Error(message);
         }
 
-
-        // ==============================================
-        // Get XLSX file
-        // ==============================================
-
-        const blob =
-          await response.blob();
-
-
-        // ==============================================
-        // Get filename from backend
-        // ==============================================
+        const blob = await response.blob();
 
         const contentDisposition =
           response.headers.get(
             "Content-Disposition"
           );
 
-
         let filename =
           "GNSS_Recording.xlsx";
 
-
         if (contentDisposition) {
-
           const match =
             contentDisposition.match(
               /filename="([^"]+)"/
             );
 
-
           if (match) {
-
-            filename =
-              match[1];
-
+            filename = match[1];
           }
-
         }
-
-
-        // ==============================================
-        // Download / save XLSX
-        // ==============================================
 
         await downloadXlsx(
           blob,
           filename
         );
 
-
-        // ==============================================
-        // Stop map path recording
-        // ==============================================
-
         onRecordingChange(false);
-
-      }
-      catch (err) {
-
+      } catch (err) {
         console.error(
           "Stop recording error:",
           err
         );
 
-
         alert(
           err.message ||
-          "Failed to stop recording."
+            "Failed to stop recording."
         );
-
       }
-
 
       return;
     }
 
-
-    // ==================================================
-    // START RECORDING
-    // ==================================================
+    // --------------------------------------------------
+    // START
+    // --------------------------------------------------
 
     try {
-
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL}/api/record/start`,
         {
@@ -423,47 +209,36 @@ function StatsPanel({
         }
       );
 
-
       if (!response.ok) {
-
         throw new Error(
           "Failed to start recording."
         );
-
       }
 
-
       onRecordingChange(true);
-
-    }
-    catch (err) {
-
+    } catch (err) {
       console.error(
         "Start recording error:",
         err
       );
 
-
       alert(
         err.message ||
-        "Failed to start recording."
+          "Failed to start recording."
       );
-
     }
   }
 
-
   // ======================================================
-  // Capture
+  // CAPTURE
   // ======================================================
 
   async function handleCapture() {
-
     if (
+      !gnssData ||
       gnssData.latitude == null ||
       gnssData.longitude == null
     ) {
-
       alert(
         "No valid GNSS position available."
       );
@@ -471,16 +246,15 @@ function StatsPanel({
       return;
     }
 
-
     try {
-
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL}/api/capture`,
         {
           method: "POST",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify(
@@ -489,108 +263,64 @@ function StatsPanel({
         }
       );
 
-
       if (!response.ok) {
-
         let message =
           "Failed to capture GNSS sample.";
 
-
         try {
-
           const errorData =
             await response.json();
-
 
           message =
             errorData.message ||
             message;
-
+        } catch {
+          // Not JSON
         }
-        catch {
-          // Response wasn't JSON
-        }
-
 
         throw new Error(message);
       }
 
-
-      // ==============================================
-      // Get XLSX file
-      // ==============================================
-
-      const blob =
-        await response.blob();
-
-
-      // ==============================================
-      // Get filename sent by backend
-      // ==============================================
+      const blob = await response.blob();
 
       const contentDisposition =
         response.headers.get(
           "Content-Disposition"
         );
 
-
       let filename =
         "GNSS_Capture.xlsx";
 
-
       if (contentDisposition) {
-
         const match =
           contentDisposition.match(
             /filename="([^"]+)"/
           );
 
-
         if (match) {
-
-          filename =
-            match[1];
-
+          filename = match[1];
         }
-
       }
-
-
-      // ==============================================
-      // Download / save XLSX
-      // ==============================================
 
       await downloadXlsx(
         blob,
         filename
       );
-
-
-      console.log(
-        "GNSS sample captured:",
-        gnssData
-      );
-
-    }
-    catch (err) {
-
+    } catch (err) {
       console.error(
         "Capture error:",
         err
       );
 
-
       alert(
         err.message ||
-        "Failed to capture GNSS sample."
+          "Failed to capture GNSS sample."
       );
-
     }
   }
 
-
   // ======================================================
-  // Recording timer
+  // RECORDING TIME
   // ======================================================
 
   const hours = String(
@@ -599,150 +329,490 @@ function StatsPanel({
     )
   ).padStart(2, "0");
 
-
   const minutes = String(
     Math.floor(
       (recordStatus.elapsed % 3600) / 60
     )
   ).padStart(2, "0");
 
-
   const seconds = String(
     recordStatus.elapsed % 60
   ).padStart(2, "0");
 
-
   // ======================================================
-  // DESKTOP LAYOUT
+  // DATA CARD
   // ======================================================
 
-  if (!isMobile) {
+  function DataCard({
+    data,
+    title,
+    dotColor,
+  }) {
+    if (!data) {
+      return null;
+    }
+
+    const currentTime = data.timestamp
+      ? new Date(
+          data.timestamp
+        ).toLocaleTimeString()
+      : "--";
 
     return (
-
       <div
-        className="stats-panel"
         style={{
-          opacity:
-            gnssData.connected
-              ? 1
-              : 0.7,
+          width: "60%",
+          boxSizing: "border-box",
 
-          transition:
-            "0.3s ease",
+          padding: isMobile
+            ? "8px 10px"
+            : "12px",
+
+          borderRadius: isMobile
+            ? "12px"
+            : "14px",
+
+          background:
+            "rgba(255, 255, 255, 0.88)",
+
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter:
+            "blur(8px)",
+
+          boxShadow:
+            "0 2px 10px rgba(0,0,0,0.18)",
+
+          border:
+            "1px solid rgba(255,255,255,0.75)",
         }}
       >
-
-        {/* Header */}
-
-        <div className="stats-header">
-
-          <div className="stats-title">
-
-            <div className="stats-icon">
-
-              <FaSatelliteDish />
-
-            </div>
-
-
-            <div>
-
-              <h3>
-                GNSS Information
-              </h3>
-
-              <span>
-                Live Receiver Data
-              </span>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* Receiver Status */}
+        {/* Source */}
 
         <div
           style={{
-            marginTop: "14px",
-            marginBottom: "18px",
-            padding: "12px",
-            borderRadius: "10px",
-            fontWeight: 600,
-            textAlign: "center",
+            display: "flex",
+            alignItems: "center",
 
-            background:
-              gnssData.status === "connected"
-                ? "#d1fae5"
-                : "#fee2e2",
+            gap: "7px",
 
-            color:
-              gnssData.status === "connected"
-                ? "#065f46"
-                : "#991b1b",
+            marginBottom: isMobile
+              ? "4px"
+              : "7px",
+
+            fontSize: isMobile
+              ? "14px"
+              : "16px",
+
+            fontWeight: "600",
+
+            color: "#1f2937",
           }}
         >
+          <span
+            style={{
+              width: isMobile
+                ? "9px"
+                : "10px",
 
-          {gnssData.status === "connected"
-            ? "🟢 Receiver Connected"
-            : "🔴 Receiver Disconnected"}
+              height: isMobile
+                ? "9px"
+                : "10px",
 
+              borderRadius: "50%",
+
+              background: dotColor,
+
+              flexShrink: 0,
+            }}
+          />
+
+          {title}
         </div>
 
+        {/* Latitude */}
 
-        {/* Last update */}
+        <div className="compact-stat-row">
+          <span>Lat:</span>
 
-        {!gnssData.connected && (
+          <strong>
+            {Number.isFinite(
+              Number(data.latitude)
+            )
+              ? Number(
+                  data.latitude
+                ).toFixed(6)
+              : "--"}
+          </strong>
+        </div>
 
-          <div
+        {/* Longitude */}
+
+        <div className="compact-stat-row">
+          <span>Lon:</span>
+
+          <strong>
+            {Number.isFinite(
+              Number(data.longitude)
+            )
+              ? Number(
+                  data.longitude
+                ).toFixed(6)
+              : "--"}
+          </strong>
+        </div>
+
+        {/* Horizontal Accuracy */}
+
+        <div className="compact-stat-row">
+          <span>H Acc:</span>
+
+          <strong>
+            {data.accuracy != null &&
+            Number.isFinite(
+              Number(data.accuracy)
+            )
+              ? `${Number(
+                  data.accuracy
+                ).toFixed(3)} m`
+              : "--"}
+          </strong>
+        </div>
+
+        {/* Fix Type */}
+
+        <div className="compact-stat-row">
+          <span>Fix:</span>
+
+          <strong
             style={{
-              marginBottom: "18px",
-              textAlign: "center",
-              color: "#666",
-              fontSize: "13px",
-              lineHeight: "20px",
+              color:
+                data.fixType ===
+                "RTK Fixed"
+                  ? "#059669"
+                  : "#2563eb",
             }}
           >
+            {data.fixType ?? "--"}
+          </strong>
+        </div>
 
-            <div>
-              Last update
-            </div>
-
-            <div
-              style={{
-                fontWeight: "600",
-                marginTop: "4px",
-              }}
-            >
-
-              {secondsAgo} second
-              {secondsAgo !== 1 ? "s" : ""}
-              {" "}ago
-
-            </div>
-
-          </div>
-
-        )}
-
-
-        {/* Record Button */}
+        {/* Time */}
 
         <div
-          onClick={handleRecording}
+          className="compact-stat-row"
           style={{
-            marginTop: "14px",
-            padding: "12px",
-            borderRadius: "12px",
-            cursor: "pointer",
+            borderBottom: "none",
+          }}
+        >
+          <span>Time:</span>
+
+          <strong>
+            {currentTime}
+          </strong>
+        </div>
+      </div>
+    );
+  }
+
+  // ======================================================
+  // MOBILE
+  // ======================================================
+
+  if (isMobile) {
+    
+    const firstData =
+      androidData ??
+      qlmData ??
+      gnssData;
+
+    const secondData =
+      androidData
+        ? qlmData
+        : null;
+
+    return (
+      <>
+      <CameraOverlay />
+        <style>
+          {`
+            .compact-stat-row {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+
+              min-height: 21px;
+
+              padding: 1px 0;
+
+              border-bottom:
+                1px solid rgba(0,0,0,0.08);
+
+              font-size: 12px;
+
+              color: #4b5563;
+
+              gap: 8px;
+            }
+
+            .compact-stat-row strong {
+              color: #2563eb;
+              font-weight: 600;
+              text-align: right;
+              white-space: nowrap;
+            }
+          `}
+        </style>
+
+        {/* ==================================================
+            MOBILE TOP STATS
+        ================================================== */}
+
+        <div
+          style={{
+            position: "fixed",
+
+            top:
+              "calc(env(safe-area-inset-top, 0px) + 82px)",
+
+            left: "12px",
+
+            width:
+              "min(235px, calc(100vw - 24px))",
+
+            zIndex: 1500,
+
+            display: "flex",
+            flexDirection: "column",
+
+            gap: "7px",
+          }}
+        >
+          {/* First Source */}
+
+          {firstData && (
+            <DataCard
+              data={firstData}
+              title={
+                androidData
+                  ? "Android Location"
+                  : "QLM29H GNSS"
+              }
+              dotColor={
+                androidData
+                  ? "#ef4444"
+                  : "#2563eb"
+              }
+            />
+          )}
+
+          {/* Second Source */}
+
+          {secondData && (
+            <DataCard
+              data={secondData}
+              title="QLM29H GNSS"
+              dotColor="#2563eb"
+            />
+          )}
+        </div>
+
+        {/* ==================================================
+            MOBILE BOTTOM CONTROLS
+        ================================================== */}
+
+        <div
+          style={{
+            position: "fixed",
+
+            bottom:
+              "calc(env(safe-area-inset-bottom, 0px) + 18px)",
+
+            left: "50%",
+
+            transform:
+              "translateX(-50%)",
+
+            width:
+              "min(200px, calc(100vw - 40px))",
+
+            display: "flex",
+
+            gap: "8px",
+
+            zIndex: 1600,
+          }}
+        >
+          {/* Record / Stop */}
+
+          <div
+            onClick={
+              handleRecording
+            }
+            style={{
+              flex: 1,
+
+              height: "40px",
+
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+
+              borderRadius: "10px",
+
+              cursor: "pointer",
+              userSelect: "none",
+
+              fontSize: "14px",
+              fontWeight: "600",
+
+              color: "#fff",
+
+              background:
+                recordStatus.recording
+                  ? "#ef4444"
+                  : "#2563eb",
+
+              boxShadow:
+                "0 2px 8px rgba(0,0,0,0.22)",
+            }}
+          >
+            {recordStatus.recording
+              ? "Stop"
+              : "Record"}
+          </div>
+
+          {/* Capture */}
+
+          <div
+            onClick={
+              handleCapture
+            }
+            style={{
+              flex: 1,
+
+              height: "40px",
+
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+
+              borderRadius: "10px",
+
+              cursor: "pointer",
+              userSelect: "none",
+
+              fontSize: "14px",
+              fontWeight: "600",
+
+              color: "#2563eb",
+
+              background:
+                "rgba(255,255,255,0.94)",
+
+              border:
+                "1px solid rgba(255,255,255,0.95)",
+
+              boxShadow:
+                "0 2px 8px rgba(0,0,0,0.18)",
+            }}
+          >
+            Capture
+          </div>
+        </div>
+
+        {/* ==================================================
+            MOBILE RECORDING STATUS
+        ================================================== */}
+
+        {recordStatus.recording && (
+          <div
+            style={{
+              position: "fixed",
+
+              bottom:
+                "calc(env(safe-area-inset-bottom, 0px) + 64px)",
+
+              left: "50%",
+
+              transform:
+                "translateX(-50%)",
+
+              zIndex: 1600,
+
+              background:
+                "rgba(255,255,255,0.92)",
+
+              borderRadius: "8px",
+
+              padding: "3px 9px",
+
+              textAlign: "center",
+
+              fontSize: "10px",
+
+              color: "#555",
+
+              boxShadow:
+                "0 1px 5px rgba(0,0,0,0.15)",
+
+              whiteSpace: "nowrap",
+            }}
+          >
+            🔴 {hours}:{minutes}:{seconds}
+            {" • "}
+            {recordStatus.samples} samples
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // ======================================================
+  // DESKTOP
+  // ======================================================
+
+  const desktopData =
+    gnssData ??
+    qlmData ??
+    androidData;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+
+        top: "20px",
+        right: "0px",
+
+        width: "300px",
+
+        zIndex: 1500,
+
+        display: "flex",
+        flexDirection: "column",
+
+        gap: "8px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          width: "60%",
+        }}
+      >
+        <div
+          onClick={
+            handleRecording
+          }
+          style={{
+            flex: 1,
+            padding: "10px",
+            borderRadius: "9px",
+
             textAlign: "center",
-            fontWeight: "600",
-            fontSize: "16px",
-            transition: "0.3s",
-            userSelect: "none",
+
+            cursor: "pointer",
 
             background:
               recordStatus.recording
@@ -750,745 +820,52 @@ function StatsPanel({
                 : "#2563eb",
 
             color: "#fff",
+            fontWeight: "600",
           }}
         >
-
           {recordStatus.recording
-            ? "⏹ Stop"
-            : "⏺ Record"}
-
+            ? "■ Stop"
+            : "● Record"}
         </div>
 
-
-        {/* Capture */}
-
         <div
-          onClick={handleCapture}
+          onClick={
+            handleCapture
+          }
           style={{
-            marginTop: "10px",
-            padding: "12px",
-            borderRadius: "12px",
-            cursor: "pointer",
+            flex: 1,
+            padding: "10px",
+            borderRadius: "9px",
+
             textAlign: "center",
-            fontWeight: "600",
-            fontSize: "16px",
-            transition: "0.3s",
-            userSelect: "none",
 
-            background: "#f3f4f6",
+            cursor: "pointer",
+
+            background: "#fff",
             color: "#2563eb",
 
-            border: "1px solid #dbe3f0",
+            fontWeight: "600",
+
+            border:
+              "1px solid #dbe3f0",
           }}
         >
-
-          📷 Capture
-
+          Capture
         </div>
-
-
-        {/* Recording information */}
-
-        {recordStatus.recording && (
-
-          <div
-            style={{
-              textAlign: "center",
-              marginTop: "14px",
-              marginBottom: "14px",
-              color: "#555",
-              fontSize: "14px",
-              lineHeight: "24px",
-            }}
-          >
-
-            <div>
-              🔴 Recording...
-            </div>
-
-            <div
-              style={{
-                fontWeight: "600",
-              }}
-            >
-
-              {hours}:{minutes}:{seconds}
-
-            </div>
-
-            <div>
-
-              {recordStatus.samples}
-              {" "}Samples
-
-            </div>
-
-          </div>
-
-        )}
-
-
-        {/* Latitude */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <FaLocationDot />
-
-            Latitude
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.latitude?.toFixed(6) ?? "--"}
-
-          </span>
-
-        </div>
-
-
-        {/* Longitude */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <FaLocationDot />
-
-            Longitude
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.longitude?.toFixed(6) ?? "--"}
-
-          </span>
-
-        </div>
-
-
-        {/* Horizontal Accuracy */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <FaBullseye />
-
-            Horizontal Accuracy
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.accuracy != null
-              ? `${gnssData.accuracy.toFixed(3)} m`
-              : "-- m"}
-
-          </span>
-
-        </div>
-
-
-        {/* Fix Type */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <MdGpsFixed />
-
-            Fix Type
-
-          </div>
-
-
-          <span className="status">
-
-            {gnssData.fixType ?? "--"}
-
-          </span>
-
-        </div>
-
-
-        {/* Delta North */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <MdGpsFixed />
-
-            Delta North
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.northError != null
-              ? `${gnssData.northError.toFixed(2)} m`
-              : "-- m"}
-
-          </span>
-
-        </div>
-
-
-        {/* Delta East */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <MdGpsFixed />
-
-            Delta East
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.eastError != null
-              ? `${gnssData.eastError.toFixed(2)} m`
-              : "-- m"}
-
-          </span>
-
-        </div>
-
-
-        {/* Satellites */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <FaSatelliteDish />
-
-            Satellites
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.satellites ?? "--"}
-
-          </span>
-
-        </div>
-
-
-        {/* HDOP */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <MdGpsFixed />
-
-            HDOP
-
-          </div>
-
-
-          <span className="value">
-
-            {gnssData.hdop ?? "--"}
-
-          </span>
-
-        </div>
-
-
-        {/* Time */}
-
-        <div className="info-row">
-
-          <div className="label">
-
-            <FaClock />
-
-            Time
-
-          </div>
-
-
-          <span className="value">
-
-            {currentTime}
-
-          </span>
-
-        </div>
-
       </div>
-    );
-  }
 
-
-  // ======================================================
-  // MOBILE LAYOUT
-  // ======================================================
-
-  return (
-
-    <div
-      className="stats-panel mobile"
-      style={{
-        opacity:
-          gnssData.connected
-            ? 1
-            : 0.75,
-
-        transition:
-          "0.3s ease",
-      }}
-    >
-
-      {/* ==================================================
-          Mobile Header
-      ================================================== */}
-
-      <div
-        className="mobile-stats-header"
-        onClick={() =>
-          setMobileExpanded(
-            !mobileExpanded
-          )
+      <DataCard
+        data={desktopData}
+        title={
+          desktopData?.fixType ===
+          "Android Location"
+            ? "Android Location"
+            : "QLM29H GNSS"
         }
-        style={{
-          cursor: "pointer",
-        }}
-      >
-
-        <div>
-
-          <h3
-            style={{
-              margin: 0,
-            }}
-          >
-            GNSS Information
-          </h3>
-
-
-          <span
-            style={{
-              fontSize: "13px",
-
-              color:
-                gnssData.connected
-                  ? "#059669"
-                  : "#dc2626",
-
-              fontWeight: "600",
-            }}
-          >
-
-            {gnssData.connected
-              ? "🟢 Receiver Connected"
-              : "🔴 Receiver Disconnected"}
-
-          </span>
-
-        </div>
-
-
-        <div
-          style={{
-            fontSize: "18px",
-            color: "#2563eb",
-            fontWeight: "600",
-          }}
-        >
-
-          {mobileExpanded
-            ? "▲"
-            : "▼"}
-
-        </div>
-
-      </div>
-
-
-      {/* ==================================================
-          Mobile Expanded Content
-      ================================================== */}
-
-      {mobileExpanded && (
-
-        <>
-
-          {/* ----------------------------------------------
-              Record Button
-              ---------------------------------------------- */}
-
-          <div
-            onClick={handleRecording}
-            style={{
-              marginTop: "16px",
-              padding: "11px",
-              borderRadius: "10px",
-              cursor: "pointer",
-              textAlign: "center",
-              fontWeight: "600",
-
-              background:
-                recordStatus.recording
-                  ? "#ef4444"
-                  : "#2563eb",
-
-              color: "#fff",
-              userSelect: "none",
-            }}
-          >
-
-            {recordStatus.recording
-              ? "⏹ Stop"
-              : "⏺ Record"}
-
-          </div>
-
-
-          {/* Capture Button */}
-
-          <div
-            onClick={handleCapture}
-            style={{
-              marginTop: "10px",
-              padding: "11px",
-              borderRadius: "10px",
-              cursor: "pointer",
-              textAlign: "center",
-              fontWeight: "600",
-              userSelect: "none",
-
-              background: "#f3f4f6",
-              color: "#2563eb",
-
-              border: "1px solid #dbe3f0",
-            }}
-          >
-
-            📷 Capture
-
-          </div>
-
-
-          {/* ----------------------------------------------
-              Recording Status
-              ---------------------------------------------- */}
-
-          {recordStatus.recording && (
-
-            <div
-              style={{
-                textAlign: "center",
-                marginTop: "10px",
-                marginBottom: "10px",
-                color: "#555",
-                fontSize: "13px",
-                lineHeight: "22px",
-              }}
-            >
-
-              <div>
-                🔴 Recording...
-              </div>
-
-              <div
-                style={{
-                  fontWeight: "600",
-                }}
-              >
-
-                {hours}:{minutes}:{seconds}
-
-              </div>
-
-              <div>
-
-                {recordStatus.samples}
-                {" "}Samples
-
-              </div>
-
-            </div>
-
-          )}
-
-
-          {/* ----------------------------------------------
-              Latitude
-              ---------------------------------------------- */}
-
-          <div className="info-row">
-
-            <div className="label">
-
-              <FaLocationDot />
-
-              Latitude
-
-            </div>
-
-
-            <span className="value">
-
-              {gnssData.latitude?.toFixed(6) ?? "--"}
-
-            </span>
-
-          </div>
-
-
-          {/* ----------------------------------------------
-              Longitude
-              ---------------------------------------------- */}
-
-          <div className="info-row">
-
-            <div className="label">
-
-              <FaLocationDot />
-
-              Longitude
-
-            </div>
-
-
-            <span className="value">
-
-              {gnssData.longitude?.toFixed(6) ?? "--"}
-
-            </span>
-
-          </div>
-
-              {/* Horizontal Accuracy */}
-
-              <div className="info-row">
-
-                <div className="label">
-
-                  <FaBullseye />
-
-                  Horizontal Accuracy
-
-                </div>
-
-
-                <span className="value">
-
-                  {gnssData.accuracy != null
-                    ? `${gnssData.accuracy.toFixed(3)} m`
-                    : "-- m"}
-
-                </span>
-
-              </div>
-
-
-          {/* ----------------------------------------------
-              Fix Type
-              ---------------------------------------------- */}
-
-          <div className="info-row">
-
-            <div className="label">
-
-              <MdGpsFixed />
-
-              Fix Type
-
-            </div>
-
-
-            <span className="status">
-
-              {gnssData.fixType ?? "--"}
-
-            </span>
-
-          </div>
-
-
-          {/* ----------------------------------------------
-              Show More
-              ---------------------------------------------- */}
-
-          <div
-            onClick={() =>
-              setMobileShowMore(
-                !mobileShowMore
-              )
-            }
-            style={{
-              padding: "0px",
-              marginTop: "1px",
-              marginBottom: "3px",
-              textAlign: "center",
-              color: "#2563eb",
-              fontWeight: "600",
-              cursor: "pointer",
-              userSelect: "none",
-            }}
-          >
-
-            {mobileShowMore
-              ? "Show Less ▲"
-              : "Show More ▼"}
-
-          </div>
-
-
-          {/* ----------------------------------------------
-              Lower Information Section
-              ---------------------------------------------- */}
-
-          {mobileShowMore && (
-
-            <>
-
-
-          {/* ----------------------------------------------
-              Delta North
-              ---------------------------------------------- */}
-
-          <div className="info-row">
-
-            <div className="label">
-
-              <MdGpsFixed />
-
-              Delta North
-
-            </div>
-
-
-            <span className="value">
-
-              {gnssData.northError != null
-                ? `${gnssData.northError.toFixed(2)} m`
-                : "-- m"}
-
-            </span>
-
-          </div>
-
-
-          {/* ----------------------------------------------
-              Delta East
-              ---------------------------------------------- */}
-
-          <div className="info-row">
-
-            <div className="label">
-
-              <MdGpsFixed />
-
-              Delta East
-
-            </div>
-
-
-            <span className="value">
-
-              {gnssData.eastError != null
-                ? `${gnssData.eastError.toFixed(2)} m`
-                : "-- m"}
-
-            </span>
-
-          </div>
-
-
-              {/* Satellites */}
-
-              <div className="info-row">
-
-                <div className="label">
-
-                  <FaSatelliteDish />
-
-                  Satellites
-
-                </div>
-
-
-                <span className="value">
-
-                  {gnssData.satellites ?? "--"}
-
-                </span>
-
-              </div>
-
-
-              {/* HDOP */}
-
-              <div className="info-row">
-
-                <div className="label">
-
-                  <MdGpsFixed />
-
-                  HDOP
-
-                </div>
-
-
-                <span className="value">
-
-                  {gnssData.hdop ?? "--"}
-
-                </span>
-
-              </div>
-
-
-              {/* Time */}
-
-              <div className="info-row">
-
-                <div className="label">
-
-                  <FaClock />
-
-                  Time
-
-                </div>
-
-
-                <span className="value">
-
-                  {currentTime}
-
-                </span>
-
-              </div>
-
-            </>
-
-          )}
-
-        </>
-
-      )}
-
+        dotColor="#2563eb"
+      />
     </div>
   );
 }
-
 
 export default StatsPanel;
