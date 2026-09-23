@@ -36,7 +36,7 @@ function CameraOverlay() {
   // ---------------------------------------------------------
 
   useEffect(() => {
-    const width = 220;
+    const width = 165;
 
     setPosition({
       left: Math.max(
@@ -87,6 +87,111 @@ function CameraOverlay() {
   }
 
   // ---------------------------------------------------------
+  // Get rear camera
+  // ---------------------------------------------------------
+
+  async function getRearCameraStream() {
+    if (
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+      throw new Error(
+        "Camera access is not supported by this browser."
+      );
+    }
+
+    /*
+     * FIRST ATTEMPT:
+     *
+     * Explicitly request the environment/rear camera.
+     *
+     * `exact` is intentional here. We don't want the browser
+     * silently selecting the front camera.
+     */
+    try {
+      console.log(
+        "Requesting rear camera with exact environment constraint..."
+      );
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: {
+              exact: "environment",
+            },
+          },
+          audio: false,
+        });
+
+      return stream;
+    } catch (exactError) {
+      console.warn(
+        "Exact rear-camera request failed:",
+        exactError
+      );
+    }
+
+    /*
+     * SECOND ATTEMPT:
+     *
+     * Some Android WebViews don't accept `exact`, but do
+     * understand `ideal`.
+     */
+    try {
+      console.log(
+        "Trying rear camera with ideal environment constraint..."
+      );
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: {
+              ideal: "environment",
+            },
+          },
+          audio: false,
+        });
+
+      /*
+       * Verify what camera was actually selected.
+       */
+      const track = stream.getVideoTracks()[0];
+
+      console.log(
+        "Camera selected with ideal constraint:",
+        {
+          label: track?.label,
+          settings: track?.getSettings
+            ? track.getSettings()
+            : {},
+        }
+      );
+
+      return stream;
+    } catch (idealError) {
+      console.warn(
+        "Ideal rear-camera request failed:",
+        idealError
+      );
+    }
+
+    /*
+     * FINAL FALLBACK:
+     *
+     * Open any camera so the feature doesn't completely fail
+     * on browsers that don't support facingMode.
+     */
+    console.warn(
+      "Rear camera could not be explicitly selected. Falling back to default camera."
+    );
+
+    return await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false,
+    });
+  }
+
+  // ---------------------------------------------------------
   // Start camera
   // ---------------------------------------------------------
 
@@ -97,41 +202,31 @@ function CameraOverlay() {
     setCameraStarting(true);
 
     try {
+      /*
+       * Clean up any previous stream.
+       */
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => {
-          try {
-            track.stop();
-          } catch (_) {}
-        });
+        streamRef.current
+          .getTracks()
+          .forEach((track) => {
+            try {
+              track.stop();
+            } catch (_) {}
+          });
 
         streamRef.current = null;
       }
 
-      if (
-        !navigator.mediaDevices ||
-        !navigator.mediaDevices.getUserMedia
-      ) {
-        throw new Error(
-          "Camera access is not supported by this browser."
-        );
-      }
-
       /*
-       * Start with the simplest camera request.
-       * Rear-camera preference is applied only after the
-       * stream has successfully started.
+       * Request rear camera.
        */
       const stream =
-        await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false,
-        });
+        await getRearCameraStream();
 
       streamRef.current = stream;
 
       /*
-       * The video element is always mounted below,
-       * even while cameraOpen is false.
+       * The video element is always mounted.
        */
       const video = videoRef.current;
 
@@ -145,79 +240,104 @@ function CameraOverlay() {
       video.muted = true;
       video.playsInline = true;
 
+      /*
+       * Attach stream.
+       */
       video.srcObject = stream;
 
       /*
-       * Wait for the video element to receive metadata.
+       * Get actual camera information.
        */
-      await new Promise((resolve, reject) => {
-        let finished = false;
+      const videoTrack =
+        stream.getVideoTracks()[0];
 
-        const cleanup = () => {
-          video.removeEventListener(
+      console.log(
+        "Active camera:",
+        {
+          label: videoTrack?.label,
+          readyState:
+            videoTrack?.readyState,
+          settings:
+            videoTrack?.getSettings
+              ? videoTrack.getSettings()
+              : {},
+        }
+      );
+
+      /*
+       * Wait for video metadata.
+       */
+      await new Promise(
+        (resolve, reject) => {
+          let finished = false;
+
+          const cleanup = () => {
+            video.removeEventListener(
+              "loadedmetadata",
+              handleReady
+            );
+
+            video.removeEventListener(
+              "loadeddata",
+              handleReady
+            );
+
+            video.removeEventListener(
+              "canplay",
+              handleReady
+            );
+          };
+
+          const finish = () => {
+            if (finished) return;
+
+            finished = true;
+            clearTimeout(timeout);
+            cleanup();
+
+            resolve();
+          };
+
+          const handleReady = () => {
+            finish();
+          };
+
+          const timeout = setTimeout(() => {
+            if (finished) return;
+
+            finished = true;
+            cleanup();
+
+            reject(
+              new Error(
+                "Camera opened, but no video frames were received."
+              )
+            );
+          }, 5000);
+
+          video.addEventListener(
             "loadedmetadata",
             handleReady
           );
 
-          video.removeEventListener(
+          video.addEventListener(
             "loadeddata",
             handleReady
           );
 
-          video.removeEventListener(
+          video.addEventListener(
             "canplay",
             handleReady
           );
-        };
 
-        const finish = () => {
-          if (finished) return;
-
-          finished = true;
-          clearTimeout(timeout);
-          cleanup();
-          resolve();
-        };
-
-        const handleReady = () => {
-          finish();
-        };
-
-        const timeout = setTimeout(() => {
-          if (finished) return;
-
-          finished = true;
-          cleanup();
-
-          reject(
-            new Error(
-              "Camera opened, but no video frames were received."
-            )
-          );
-        }, 5000);
-
-        video.addEventListener(
-          "loadedmetadata",
-          handleReady
-        );
-
-        video.addEventListener(
-          "loadeddata",
-          handleReady
-        );
-
-        video.addEventListener(
-          "canplay",
-          handleReady
-        );
-
-        if (video.readyState >= 2) {
-          finish();
+          if (video.readyState >= 2) {
+            finish();
+          }
         }
-      });
+      );
 
       /*
-       * Explicitly start playback.
+       * Explicit playback.
        */
       try {
         await video.play();
@@ -235,81 +355,42 @@ function CameraOverlay() {
       }
 
       /*
-       * Verify the camera track is actually live.
+       * Verify live track.
        */
-      const videoTrack = stream
-        .getVideoTracks()
-        .find(
-          (track) =>
-            track.readyState === "live"
-        );
-
-      if (!videoTrack) {
+      if (
+        !videoTrack ||
+        videoTrack.readyState !== "live"
+      ) {
         throw new Error(
           "Camera permission was granted, but the camera track is not live."
         );
       }
 
       console.log("Camera started:", {
-        track: videoTrack.label,
-        readyState: videoTrack.readyState,
-        settings: videoTrack.getSettings
-          ? videoTrack.getSettings()
-          : {},
-        videoWidth: video.videoWidth,
-        videoHeight: video.videoHeight,
+        label: videoTrack.label,
+        settings:
+          videoTrack.getSettings
+            ? videoTrack.getSettings()
+            : {},
+        width: video.videoWidth,
+        height: video.videoHeight,
       });
 
       /*
-       * Prefer the rear/environment camera after the
-       * stream has already successfully started.
-       */
-      try {
-        if (videoTrack.applyConstraints) {
-          await videoTrack.applyConstraints({
-            facingMode: {
-              ideal: "environment",
-            },
-          });
-
-          console.log(
-            "Camera settings after rear-camera preference:",
-            videoTrack.getSettings
-              ? videoTrack.getSettings()
-              : {}
-          );
-        }
-      } catch (constraintError) {
-        console.warn(
-          "Could not prefer rear camera:",
-          constraintError
-        );
-      }
-
-      /*
-       * Give the camera a short time to start delivering frames.
+       * Give the camera a little time to produce frames.
        */
       await new Promise((resolve) =>
         setTimeout(resolve, 250)
       );
 
       /*
-       * Retry playback if dimensions are not ready yet.
+       * Retry playback if needed.
        */
       if (
         video.readyState < 2 ||
         video.videoWidth === 0 ||
         video.videoHeight === 0
       ) {
-        console.warn(
-          "Video dimensions not ready yet:",
-          {
-            readyState: video.readyState,
-            videoWidth: video.videoWidth,
-            videoHeight: video.videoHeight,
-          }
-        );
-
         try {
           await video.play();
         } catch (error) {
@@ -321,22 +402,27 @@ function CameraOverlay() {
       }
 
       /*
-       * Only show the popup after the stream is attached
-       * and playback has been attempted.
+       * Now show the video window.
        */
       setCameraOpen(true);
       setCameraStarting(false);
 
       videoTrack.onended = () => {
-        console.warn("Camera track ended.");
+        console.warn(
+          "Camera track ended."
+        );
       };
 
       videoTrack.onmute = () => {
-        console.warn("Camera track muted.");
+        console.warn(
+          "Camera track muted."
+        );
       };
 
       videoTrack.onunmute = () => {
-        console.log("Camera track resumed.");
+        console.log(
+          "Camera track resumed."
+        );
       };
     } catch (error) {
       console.error(
@@ -345,11 +431,13 @@ function CameraOverlay() {
       );
 
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => {
-          try {
-            track.stop();
-          } catch (_) {}
-        });
+        streamRef.current
+          .getTracks()
+          .forEach((track) => {
+            try {
+              track.stop();
+            } catch (_) {}
+          });
 
         streamRef.current = null;
       }
@@ -364,20 +452,27 @@ function CameraOverlay() {
       setCameraOpen(false);
       setCameraStarting(false);
 
-      let message = "Unable to open camera.";
+      let message =
+        "Unable to open camera.";
 
       if (error?.name === "NotAllowedError") {
         message =
           "Camera permission was denied. Allow camera access in browser/app settings.";
-      } else if (error?.name === "NotFoundError") {
+      } else if (
+        error?.name === "NotFoundError"
+      ) {
         message =
           "No camera was found on this device.";
-      } else if (error?.name === "NotReadableError") {
+      } else if (
+        error?.name === "NotReadableError"
+      ) {
         message =
           "Camera is already being used by another application.";
-      } else if (error?.name === "OverconstrainedError") {
+      } else if (
+        error?.name === "OverconstrainedError"
+      ) {
         message =
-          "The requested camera configuration is not supported.";
+          "The rear camera is not available on this device.";
       } else if (error?.message) {
         message = error.message;
       }
@@ -424,12 +519,13 @@ function CameraOverlay() {
   }, []);
 
   // ---------------------------------------------------------
-  // Keep video inside screen after resize
+  // Keep popup inside screen
   // ---------------------------------------------------------
 
   useEffect(() => {
     function handleResize() {
-      const element = containerRef.current;
+      const element =
+        containerRef.current;
 
       if (!element) return;
 
@@ -539,7 +635,9 @@ function CameraOverlay() {
   }
 
   function handleTouchMove(event) {
-    // Pinch to resize
+    /*
+     * Pinch resize
+     */
     if (
       event.touches.length === 2 &&
       pinchRef.current.active
@@ -576,7 +674,9 @@ function CameraOverlay() {
       return;
     }
 
-    // Drag
+    /*
+     * Drag
+     */
     if (
       event.touches.length === 1 &&
       dragRef.current.active
@@ -683,8 +783,9 @@ function CameraOverlay() {
 
   useEffect(() => {
     function handleMouseMove(event) {
-      if (!dragRef.current.active)
+      if (!dragRef.current.active) {
         return;
+      }
 
       const element =
         containerRef.current;
@@ -777,10 +878,7 @@ function CameraOverlay() {
 
   return (
     <>
-      {/* ---------------------------------------------------
-          CAMERA BUTTON
-          White circle + purple FaVideo / FaVideoSlash
-      --------------------------------------------------- */}
+      {/* Camera button */}
       <button
         type="button"
         data-camera-button="true"
@@ -794,7 +892,8 @@ function CameraOverlay() {
         style={{
           position: "fixed",
 
-          top: "4px",
+          top:
+            "calc(env(safe-area-inset-top, 0px) + 4px)",
 
           right: "10px",
 
@@ -837,9 +936,7 @@ function CameraOverlay() {
         )}
       </button>
 
-      {/* ---------------------------------------------------
-          ERROR
-      --------------------------------------------------- */}
+      {/* Error */}
       {cameraError && (
         <div
           style={{
@@ -876,10 +973,7 @@ function CameraOverlay() {
       )}
 
       {/* ---------------------------------------------------
-          VIDEO WINDOW
-
-          Always mounted so videoRef.current exists when
-          getUserMedia() returns.
+          PORTRAIT VIDEO WINDOW
       --------------------------------------------------- */}
       <div
         ref={containerRef}
@@ -893,8 +987,13 @@ function CameraOverlay() {
           left: position.left ?? 12,
           top: position.top ?? 90,
 
-          width: "220px",
-          height: "165px",
+          /*
+           * Portrait:
+           * width  = 165px
+           * height = 220px
+           */
+          width: "165px",
+          height: "220px",
 
           transform: `scale(${scale})`,
           transformOrigin:
@@ -940,6 +1039,10 @@ function CameraOverlay() {
 
             background: "#000",
 
+            /*
+             * Cover the portrait tray while maintaining
+             * the camera aspect ratio.
+             */
             objectFit: "cover",
 
             pointerEvents: "none",
