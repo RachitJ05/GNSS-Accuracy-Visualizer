@@ -361,7 +361,7 @@ function StatsPanel({
     return (
       <div
         style={{
-          width: "60%",
+          width: "66%",
           boxSizing: "border-box",
 
           padding: isMobile
@@ -595,7 +595,7 @@ function StatsPanel({
               title={
                 androidData
                   ? "Android Location"
-                  : "QLM29H GNSS"
+                  : "Quectel GNSS"
               }
               dotColor={
                 androidData
