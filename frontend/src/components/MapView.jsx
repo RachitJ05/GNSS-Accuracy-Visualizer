@@ -14,6 +14,7 @@ import { useMemo, useState, useEffect } from "react";
 import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
+import "leaflet-rotate";
 
 import LocationControl from "./LocationControl";
 import MapStyleControl from "./MapStyleControl";
@@ -93,9 +94,7 @@ function FixMapResize() {
 }
 
 // ======================================================
-// Keep map centered on the primary position when it
-// changes. The existing LocationControl can still be used
-// independently.
+// Keep map centered on primary position
 // ======================================================
 
 function FollowPrimaryPosition({ location }) {
@@ -110,14 +109,14 @@ function FollowPrimaryPosition({ location }) {
       return;
     }
 
-    // Only move the map automatically if the user has not
-    // deliberately zoomed/panned away from the current area.
-    // This preserves the existing "live position" behavior
-    // without constantly fighting manual map movement.
     map.panTo([location.lat, location.lng], {
       animate: false,
     });
-  }, [map, location?.lat, location?.lng]);
+  }, [
+    map,
+    location?.lat,
+    location?.lng,
+  ]);
 
   return null;
 }
@@ -126,14 +125,24 @@ function FollowPrimaryPosition({ location }) {
 // Haversine distance
 // ======================================================
 
-function distanceMeters(lat1, lon1, lat2, lon2) {
+function distanceMeters(
+  lat1,
+  lon1,
+  lat2,
+  lon2
+) {
   const R = 6371000;
 
   const toRadians = (degrees) =>
     (degrees * Math.PI) / 180;
 
-  const dLat = toRadians(lat2 - lat1);
-  const dLon = toRadians(lon2 - lon1);
+  const dLat = toRadians(
+    lat2 - lat1
+  );
+
+  const dLon = toRadians(
+    lon2 - lon1
+  );
 
   const a =
     Math.sin(dLat / 2) ** 2 +
@@ -172,7 +181,9 @@ function formatDistance(meters) {
     return `${meters.toFixed(1)} m`;
   }
 
-  return `${(meters / 1000).toFixed(3)} km`;
+  return `${(
+    meters / 1000
+  ).toFixed(3)} km`;
 }
 
 // ======================================================
@@ -197,15 +208,23 @@ function MapView({
     if (
       qlmData?.latitude == null ||
       qlmData?.longitude == null ||
-      !Number.isFinite(Number(qlmData.latitude)) ||
-      !Number.isFinite(Number(qlmData.longitude))
+      !Number.isFinite(
+        Number(qlmData.latitude)
+      ) ||
+      !Number.isFinite(
+        Number(qlmData.longitude)
+      )
     ) {
       return null;
     }
 
     return {
-      lat: Number(qlmData.latitude),
-      lng: Number(qlmData.longitude),
+      lat: Number(
+        qlmData.latitude
+      ),
+      lng: Number(
+        qlmData.longitude
+      ),
     };
   }, [
     qlmData?.latitude,
@@ -216,15 +235,23 @@ function MapView({
     if (
       androidData?.latitude == null ||
       androidData?.longitude == null ||
-      !Number.isFinite(Number(androidData.latitude)) ||
-      !Number.isFinite(Number(androidData.longitude))
+      !Number.isFinite(
+        Number(androidData.latitude)
+      ) ||
+      !Number.isFinite(
+        Number(androidData.longitude)
+      )
     ) {
       return null;
     }
 
     return {
-      lat: Number(androidData.latitude),
-      lng: Number(androidData.longitude),
+      lat: Number(
+        androidData.latitude
+      ),
+      lng: Number(
+        androidData.longitude
+      ),
     };
   }, [
     androidData?.latitude,
@@ -238,21 +265,25 @@ function MapView({
   // Live comparison
   // ====================================================
 
-  const comparisonDistance = useMemo(() => {
-    if (!qlmPosition || !androidPosition) {
-      return null;
-    }
+  const comparisonDistance =
+    useMemo(() => {
+      if (
+        !qlmPosition ||
+        !androidPosition
+      ) {
+        return null;
+      }
 
-    return distanceMeters(
-      qlmPosition.lat,
-      qlmPosition.lng,
-      androidPosition.lat,
-      androidPosition.lng
-    );
-  }, [
-    qlmPosition,
-    androidPosition,
-  ]);
+      return distanceMeters(
+        qlmPosition.lat,
+        qlmPosition.lng,
+        androidPosition.lat,
+        androidPosition.lng
+      );
+    }, [
+      qlmPosition,
+      androidPosition,
+    ]);
 
   const comparisonActive =
     qlmPosition != null &&
@@ -271,15 +302,49 @@ function MapView({
     <MapContainer
       center={initialCenter}
       zoom={18}
+
+      /*
+       * Keep the normal Leaflet zoom control disabled
+       * because we're rendering our own ZoomControl.
+       */
       zoomControl={false}
+
       maxZoom={19}
       minZoom={3}
+
+      /*
+       * ==================================================
+       * MAP ROTATION
+       * ==================================================
+       *
+       * leaflet-rotate adds these options to Leaflet.
+       *
+       * rotate:
+       * Enables map rotation.
+       *
+       * touchRotate:
+       * Enables two-finger twist rotation on mobile.
+       *
+       * touchZoom:
+       * Keeps two-finger pinch zoom enabled.
+       *
+       * This means a two-finger gesture can now both
+       * zoom and rotate instead of only zooming.
+       */
+      rotate={true}
+      touchRotate={true}
+      touchZoom={true}
+
+      /*
+       * Keep normal one-finger map dragging.
+       */
+      dragging={true}
+
       style={{
         height: "100%",
         width: "100%",
       }}
     >
-
       <FixMapResize />
 
       <FollowPrimaryPosition
@@ -347,13 +412,17 @@ function MapView({
 
       {qlmPosition &&
         qlmData?.accuracy != null &&
-        Number.isFinite(Number(qlmData.accuracy)) && (
+        Number.isFinite(
+          Number(qlmData.accuracy)
+        ) && (
           <Circle
             center={[
               qlmPosition.lat,
               qlmPosition.lng,
             ]}
-            radius={Number(qlmData.accuracy)}
+            radius={Number(
+              qlmData.accuracy
+            )}
             pathOptions={{
               color: "#2563eb",
               fillColor: "#2563eb",
@@ -418,9 +487,11 @@ function MapView({
             position: "absolute",
             top: "12px",
             left: "50%",
-            transform: "translateX(-50%)",
+            transform:
+              "translateX(-50%)",
             zIndex: 1000,
-            background: "rgba(255,255,255,0.96)",
+            background:
+              "rgba(255,255,255,0.96)",
             borderRadius: "12px",
             padding: "10px 16px",
             boxShadow:
@@ -468,11 +539,13 @@ function MapView({
             <span>
               <span
                 style={{
-                  display: "inline-block",
+                  display:
+                    "inline-block",
                   width: "8px",
                   height: "8px",
                   borderRadius: "50%",
-                  background: "#2563eb",
+                  background:
+                    "#2563eb",
                   marginRight: "4px",
                 }}
               />
@@ -482,11 +555,13 @@ function MapView({
             <span>
               <span
                 style={{
-                  display: "inline-block",
+                  display:
+                    "inline-block",
                   width: "8px",
                   height: "8px",
                   borderRadius: "50%",
-                  background: "#ef4444",
+                  background:
+                    "#ef4444",
                   marginRight: "4px",
                 }}
               />
@@ -515,9 +590,12 @@ function MapView({
           Android recorded trajectory
       ================================================== */}
 
-      {recordedAndroidPath.length > 1 && (
+      {recordedAndroidPath.length >
+        1 && (
         <Polyline
-          positions={recordedAndroidPath}
+          positions={
+            recordedAndroidPath
+          }
           pathOptions={{
             color: "#ef4444",
             weight: 5,
@@ -525,7 +603,6 @@ function MapView({
           }}
         />
       )}
-
     </MapContainer>
   );
 }
