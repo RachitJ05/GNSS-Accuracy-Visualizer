@@ -361,11 +361,11 @@ function StatsPanel({
     return (
       <div
         style={{
-          width: "66%",
+          width: "55%",
           boxSizing: "border-box",
 
           padding: isMobile
-            ? "8px 10px"
+            ? "2px 10px"
             : "12px",
 
           borderRadius: isMobile
@@ -393,17 +393,17 @@ function StatsPanel({
             display: "flex",
             alignItems: "center",
 
-            gap: "7px",
+            gap: "1px",
 
             marginBottom: isMobile
-              ? "4px"
+              ? "0px"
               : "7px",
 
             fontSize: isMobile
-              ? "14px"
+              ? "12px"
               : "16px",
 
-            fontWeight: "600",
+            fontWeight: "700",
 
             color: "#1f2937",
           }}
@@ -411,11 +411,11 @@ function StatsPanel({
           <span
             style={{
               width: isMobile
-                ? "9px"
+                ? "7px"
                 : "10px",
 
               height: isMobile
-                ? "9px"
+                ? "7px"
                 : "10px",
 
               borderRadius: "50%",
@@ -594,7 +594,7 @@ function StatsPanel({
               title={
                 androidData
                   ? "Android Location"
-                  : "Quectel GNSS"
+                  : "QLM29H GNSS"
               }
               dotColor={
                 androidData
