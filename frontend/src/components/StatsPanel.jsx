@@ -440,7 +440,7 @@ function StatsPanel({
             )
               ? Number(
                   data.latitude
-                ).toFixed(6)
+                ).toFixed(8)
               : "--"}
           </strong>
         </div>
@@ -456,7 +456,7 @@ function StatsPanel({
             )
               ? Number(
                   data.longitude
-                ).toFixed(6)
+                ).toFixed(8)
               : "--"}
           </strong>
         </div>
@@ -540,14 +540,14 @@ function StatsPanel({
               align-items: center;
               justify-content: space-between;
 
-              min-height: 21px;
+              min-height: 10px;
 
-              padding: 1px 0;
+              padding: 1px 0px;
 
               border-bottom:
                 1px solid rgba(0,0,0,0.08);
 
-              font-size: 12px;
+              font-size: 10px;
 
               color: #4b5563;
 
@@ -594,7 +594,7 @@ function StatsPanel({
               title={
                 androidData
                   ? "Android Location"
-                  : "QLM29H GNSS"
+                  : "Android Location"
               }
               dotColor={
                 androidData
